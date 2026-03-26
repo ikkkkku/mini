@@ -938,7 +938,7 @@
     border: 1px solid rgba(255,255,255,0.8);
     padding: 15px;
     z-index: 125;
-    height: 220px;
+    height: 260px; /* 修改：增加高度，提供更充裕的展示空间 */
     display: flex;
     flex-direction: column;
     visibility: hidden;
@@ -947,6 +947,7 @@
     transform-origin: bottom center;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .chat-emoji-panel.show {
     visibility: visible;
     opacity: 1;
@@ -961,8 +962,17 @@
 }
 .chat-emoji-group-tab.active { background: #fff; color: #333; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 .chat-emoji-grid {
-    flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding-top: 10px; align-content: start;
+    flex: 1; 
+    overflow-y: auto; 
+    display: grid; 
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px; 
+    padding-top: 10px; 
+    padding-bottom: 20px;
+    align-content: start; 
+    -webkit-overflow-scrolling: touch;
 }
+
 .chat-emoji-grid::-webkit-scrollbar { display: none; }
 .chat-emoji-item {
     width: 100%; aspect-ratio: 1; cursor: pointer; border-radius: 8px; overflow: hidden; background: #fafafa; display: flex; align-items: center; justify-content: center;

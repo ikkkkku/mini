@@ -154,7 +154,10 @@ window.addEventListener('DOMContentLoaded', async () => {
             const img = el.querySelector('img');
             if(img) {
                 const record = await imgDb.images.get(el.id);
-                img.src = record ? record.src : whitePixel;
+                // 核心修复：如果数据库中没有用户设置的记录，必须保留 HTML 中原有的默认占位图，切忌强行透明化
+                if (record && record.src) {
+                    img.src = record.src;
+                }
             }
         }
         renderWorldbooks();
@@ -1117,10 +1120,17 @@ document.getElementById('contact-edit-id').value = '';
         }
     }
     async function deleteContact(id) {
-        if (confirm('确定要删除这个联系人吗？')) {
+        if (confirm('确定要删除这个联系人吗？(关联的聊天记录也将被彻底清空)')) {
             try {
                 await contactDb.contacts.delete(id);
+                // 核心修复：级联删除关联的聊天会话和历史消息，彻底根绝孤儿数据引发的内存泄漏和导出卡死
+                const chat = await chatListDb.chats.where('contactId').equals(id).first();
+                if (chat) await chatListDb.chats.delete(chat.id);
+                const msgs = await chatListDb.messages.where('contactId').equals(id).toArray();
+                const msgIds = msgs.map(m => m.id);
+                await chatListDb.messages.bulkDelete(msgIds);
                 renderContacts();
+                renderChatList();
             } catch (e) {
                 alert('删除失败');
                 console.error(e);
@@ -1713,6 +1723,12 @@ container.appendChild(item);
         }
         const input = document.getElementById('chat-input-main');
         input.value = '';
+        input.disabled = false;
+        const sendBtn = document.querySelector('.paw-send-line');
+        if (sendBtn) {
+            sendBtn.style.pointerEvents = 'auto';
+            sendBtn.style.opacity = '1';
+        }
         hideChatExtPanel();
         exitMultiSelectMode(); // 重置多选状态
         cancelQuote(); // 重置引用状态
@@ -2108,7 +2124,9 @@ ${langInstruction}
                     });
                 }
             });
-            const endpoint = apiUrl.endsWith('/v1') ? `${apiUrl}/chat/completions` : `${apiUrl}/v1/chat/completions`;
+            // 核心修复：剥离 API Url 末尾可能存在的斜杠，防止产生 `//v1/...` 被网关拒连的致命 Bug
+            const cleanApiUrl = apiUrl.replace(/\/+$/, '');
+            const endpoint = cleanApiUrl.endsWith('/v1') ? `${cleanApiUrl}/chat/completions` : `${cleanApiUrl}/v1/chat/completions`;
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
@@ -2128,8 +2146,12 @@ ${langInstruction}
             const replyText = data.choices[0].message.content.trim();
             let replyArr = [];
             try {
-                // 过滤可能存在的 markdown 代码块包裹
-                const cleanText = replyText.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+                // 核心修复：使用正则强制提取中括号包裹的数组内容，彻底免疫大模型在开头或结尾加的任何废话和 Markdown
+                let cleanText = replyText;
+                const match = cleanText.match(/\[[\s\S]*\]/);
+                if (match) {
+                    cleanText = match[0];
+                }
                 replyArr = JSON.parse(cleanText);
                 if (!Array.isArray(replyArr)) throw new Error("返回的不是JSON数组");
             } catch (e) {
@@ -2459,7 +2481,8 @@ ${langInstruction}
         }
         const reader = new FileReader();
         reader.onload = async (e) => {
-            const base64Img = e.target.result;
+            // 核心修复：强制添加图片压缩逻辑，防止原图直接塞入撑爆 IndexedDB
+            const base64Img = await compressImageBase64(e.target.result, 1080, 0.8);
             const container = document.getElementById('chat-msg-container');
             const myAvatar = activeChatContact.userAvatar || 'https://via.placeholder.com/100';
             const roleAvatar = activeChatContact.roleAvatar || 'https://via.placeholder.com/100';

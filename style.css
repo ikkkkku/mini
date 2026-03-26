@@ -930,13 +930,13 @@
     bottom: 95px;
     left: 20px;
     right: 20px;
-    background: #ffffff; /* 核心修复：彻底移除毛玻璃，改为纯白，防止 iOS GPU 渲染崩溃闪退 */
+    background: #ffffff;
     border-radius: 24px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.08);
     border: 1px solid #f0f0f0;
     padding: 15px;
     z-index: 125;
-    height: 320px; /* 增加整体高度，留出足够空间 */
+    height: 320px; 
     display: flex;
     flex-direction: column;
     visibility: hidden;
@@ -944,8 +944,8 @@
     transform: translateY(20px) scale(0.95);
     transform-origin: bottom center;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    touch-action: none;
 }
-
 .chat-emoji-panel.show {
     visibility: visible;
     opacity: 1;
@@ -953,57 +953,39 @@
 }
 .chat-emoji-groups {
     display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; border-bottom: 1px solid #eee; flex-shrink: 0;
+    touch-action: pan-x;
+    overscroll-behavior: contain;
 }
+
 .chat-emoji-groups::-webkit-scrollbar { display: none; }
 .chat-emoji-group-tab {
     padding: 4px 12px; font-size: 12px; color: #666; background: #f5f5f5; border-radius: 14px; cursor: pointer; white-space: nowrap; transition: all 0.2s;
 }
 .chat-emoji-group-tab.active { background: #fff; color: #333; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-
 .chat-emoji-grid {
     flex: 1; 
-    min-height: 0;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    min-height: 0; 
+    overflow-y: auto; 
+    -webkit-overflow-scrolling: touch; 
     display: grid; 
-    grid-template-columns: repeat(4, 1fr);
-    gap: 15px 10px;
+    grid-template-columns: repeat(4, 1fr); 
+    gap: 15px 10px; 
     padding-top: 15px; 
-    padding-bottom: 25px;
+    padding-bottom: 25px; 
     align-content: start; 
+    touch-action: pan-y;
+    overscroll-behavior: contain;
 }
+
 .chat-emoji-grid::-webkit-scrollbar { display: none; }
-
 .chat-emoji-item {
-    width: 100%; 
-    cursor: pointer; 
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    gap: 6px; 
+    width: 100%; cursor: pointer; border-radius: 8px; overflow: hidden; background: #fafafa; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 6px 4px; gap: 4px; box-sizing: border-box;
 }
-.chat-emoji-item:active { transform: scale(0.95); }
+.chat-emoji-item:active { transform: scale(0.9); }
+.chat-emoji-item img { width: 100%; aspect-ratio: 1; object-fit: contain; }
+.chat-emoji-item span { font-size: 10px; color: #666; width: 100%; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
 
-.chat-emoji-item img { 
-    width: 100%; 
-    height: 55px;
-    object-fit: contain; 
-    background: #fafafa; 
-    border-radius: 10px;
-    padding: 4px;
-}
-.chat-emoji-item span { 
-    font-size: 10px; 
-    color: #666; 
-    width: 100%; 
-    text-align: center; 
-    white-space: nowrap; 
-    overflow: hidden; 
-    text-overflow: ellipsis; 
-    line-height: 1;
-}
 .chat-emoji-empty { grid-column: 1 / -1; text-align: center; color: #bbb; font-size: 12px; margin-top: 20px; }
-
 /* ====== 消息通知横幅样式 ====== */
 .notification-banner {
     position: absolute;

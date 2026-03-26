@@ -198,20 +198,8 @@
             <div style="width:30px;"></div> 
         </div>
         <div class="app-body" style="padding: 15px 20px;">
-            <!-- 图标设置折叠项 -->
-            <div class="theme-accordion-item" id="accordion-icon">
-                <div class="theme-section-header" onclick="toggleThemeSection('accordion-icon')">
-                    <span>应用图标设置</span>
-                    <div class="theme-section-arrow">›</div>
-                </div>
-                <div class="theme-section-body">
-                    <div class="theme-tips">点击下方图标即可更换对应的桌面/Dock栏应用图标。</div>
-                    <div class="icon-theme-grid" id="icon-theme-grid"></div>
-                </div>
-            </div>
             <!-- 壁纸折叠项 -->
             <div class="theme-accordion-item" id="accordion-wallpaper">
-
                 <div class="theme-section-header" onclick="toggleThemeSection('accordion-wallpaper')">
                     <span>壁纸设置</span>
                     <div class="theme-section-arrow">›</div>
@@ -226,6 +214,17 @@
                     <div class="action-buttons" style="margin-top: 15px;">
                         <div class="btn-restore" onclick="restoreDefaultWallpaper()">重置背景壁纸</div>
                     </div>
+                </div>
+            </div>
+            <!-- 图标设置折叠项 -->
+            <div class="theme-accordion-item" id="accordion-icon">
+                <div class="theme-section-header" onclick="toggleThemeSection('accordion-icon')">
+                    <span>应用图标设置</span>
+                    <div class="theme-section-arrow">›</div>
+                </div>
+                <div class="theme-section-body">
+                    <div class="theme-tips">点击下方图标即可更换对应的桌面/Dock栏应用图标。</div>
+                    <div class="icon-theme-grid" id="icon-theme-grid"></div>
                 </div>
             </div>
             <!-- 字体折叠项 -->

@@ -88,7 +88,6 @@ if(rw) rw.textContent = week;
             reader.readAsDataURL(file);
         }
     }
-
     async function applyImage(id, src) {
         const target = document.getElementById(id);
         const img = target.querySelector('img');
@@ -1234,7 +1233,6 @@ document.getElementById('contact-edit-id').value = '';
                 item.onclick = () => sendChatEmojiMessage(e.url, e.desc);
                 grid.appendChild(item);
             });
-
         } catch (e) { console.error(e); }
     }
     async function deleteEmoticon(id) {
@@ -1480,19 +1478,16 @@ container.appendChild(item);
         document.getElementById('notif-time-text').textContent = timeStr;
         // 新增：保存 contactId 到属性中
         if (contactId) banner.setAttribute('data-contact-id', contactId);
-        
         banner.classList.add('show');
         if (notifTimer) clearTimeout(notifTimer);
         notifTimer = setTimeout(() => {
             banner.classList.remove('show');
         }, 2000); // 2秒后自动收起
     }
-
     // 新增：横幅点击与向上滑动关闭事件监听
     document.addEventListener('DOMContentLoaded', () => {
         const banner = document.getElementById('notification-banner');
         let bannerStartY = 0;
-        
         // 点击横幅进入聊天
         banner.addEventListener('click', () => {
             const contactId = banner.getAttribute('data-contact-id');
@@ -1503,12 +1498,10 @@ container.appendChild(item);
                 if (notifTimer) clearTimeout(notifTimer);
             }
         });
-
         // 向上滑动关闭
         banner.addEventListener('touchstart', (e) => {
             bannerStartY = e.touches[0].clientY;
         }, {passive: true});
-
         banner.addEventListener('touchmove', (e) => {
             const currentY = e.touches[0].clientY;
             if (bannerStartY - currentY > 15) { // 向上滑动超过 15px 立即关闭
@@ -1713,11 +1706,9 @@ container.appendChild(item);
                 container.insertAdjacentHTML('beforeend', generateMsgHtml(msg, myAvatar, roleAvatar));
             });
             bindMsgEvents();
-
             setTimeout(() => { container.scrollTop = container.scrollHeight; }, 10);
             setTimeout(() => { container.scrollTop = container.scrollHeight; }, 320);
         } catch (e) {
-
             console.error("加载历史消息失败", e);
         }
         const input = document.getElementById('chat-input-main');
@@ -1820,7 +1811,6 @@ container.appendChild(item);
                 item.onclick = () => sendChatEmojiMessage(e.url, e.desc);
                 grid.appendChild(item);
             });
-
         } catch(e) { console.error("加载表情失败", e); }
     }
     async function sendChatEmojiMessage(url, desc) {
@@ -1853,7 +1843,6 @@ container.appendChild(item);
             console.error("发送表情消息失败", err);
         }
     }
-
     function closeChatWindow() {
         document.getElementById('chat-window').style.display = 'none';
         hideChatExtPanel();
@@ -1864,7 +1853,6 @@ container.appendChild(item);
         // 核心修复：优先使用传入的锁定联系人，防串联
         const contact = targetContact || activeChatContact;
         if (!contact) return null;
-
         const container = document.getElementById('chat-msg-container');
         const roleAvatar = contact.roleAvatar || 'https://via.placeholder.com/100';
         const myAvatar = contact.userAvatar || 'https://via.placeholder.com/100';
@@ -1885,7 +1873,6 @@ container.appendChild(item);
             const chatWindow = document.getElementById('chat-window');
             // 核心修复：必须判断当前所在的聊天界面是不是这个锁定的联系人
             const isCurrentChatActive = chatWindow.style.display === 'flex' && activeChatContact && activeChatContact.id === contact.id;
-
             if (isCurrentChatActive) {
                 const msgObj = { id: newMsgId, sender: 'role', content: content, timeStr: timeStr, quoteText: quoteText };
                 container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
@@ -1905,15 +1892,12 @@ container.appendChild(item);
     async function triggerRoleReply() {
         if (isReplying || !activeChatContact) return;
         isReplying = true;
-        
         // 核心修复：在此刻“拍下快照”锁定联系人，后续所有操作只认这个锁定的联系人，杜绝串台！
         const lockedContact = activeChatContact;
-
         const input = document.getElementById('chat-input-main');
         const sendBtn = document.querySelector('.paw-send-line');
         const titleEl = document.getElementById('chat-current-name');
         const originalTitle = lockedContact.roleName;
-        
         // UI 上锁 (只在当前界面没被切走时才改UI)
         if (activeChatContact && activeChatContact.id === lockedContact.id) {
             input.disabled = true;
@@ -1954,7 +1938,6 @@ container.appendChild(item);
             // 新增：生成引用和撤回的随机数
             const randReply = Math.random();
             const randRecall = Math.random();
-
             // 0.10% 概率触发其一 (相片, 定位, 红包, 转账, 外卖, 礼物, 电话, 视频)
             const triggerCamera = randSpecial < 0.001;
             const triggerLocation = randSpecial >= 0.001 && randSpecial < 0.002;
@@ -1964,15 +1947,12 @@ container.appendChild(item);
             const triggerGift = randSpecial >= 0.005 && randSpecial < 0.006;
             const triggerCall = randSpecial >= 0.006 && randSpecial < 0.007;
             const triggerVideoCall = randSpecial >= 0.007 && randSpecial < 0.008;
-            
             // 15% 概率触发语音和表情包
             const triggerVoice = randVoice < 0.15;
             const triggerEmoticon = (randEmoticon < 0.15) && (allEmoticons.length > 0);
-
             // 修改：15%概率触发引用机制，5%概率触发撤回机制
             const triggerReply = randReply < 0.15;
             const triggerRecall = randRecall < 0.05;
-
             // 基础支持类型（去除默认的 reply 和 recall_msg，仅保留最基础的 text）
             let allowedTypes = ["text"];
             let typeInstructions = [
@@ -1980,14 +1960,12 @@ container.appendChild(item);
             ];
             let specialFeatures = [];
             let featureIndex = 1;
-
             // 动态推入引用指令（只有命中概率时，大模型才知道可以使用引用）
             if (triggerReply) {
                 allowedTypes.push("reply");
                 typeInstructions.push(`{"type": "reply", "target_text": "你要回复的那条消息的【原文内容】", "content": "对该片段的回复"}`);
                 specialFeatures.push(`${featureIndex++}. 当你想针对某句话进行回复时，使用 "type": "reply"，并在 "target_text" 摘录原文片段。`);
             }
-            
             // 动态推入撤回指令（只有命中概率时，大模型才知道可以使用撤回）
             if (triggerRecall) {
                 allowedTypes.push("recall_msg");
@@ -2343,19 +2321,22 @@ ${langInstruction}
         } else {
             recallDelBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>删除';
         }
+        panel.style.opacity = '0';
         panel.style.display = 'block';
         const rect = bubbleEl.getBoundingClientRect();
-        const panelWidth = 170; 
-        const panelHeight = 100; 
+        const panelWidth = panel.offsetWidth || 170; 
+        const panelHeight = panel.offsetHeight || 100;
         let finalX = rect.left + (rect.width / 2) - (panelWidth / 2);
         if (finalX < 10) finalX = 10;
         if (finalX + panelWidth > window.innerWidth - 10) finalX = window.innerWidth - panelWidth - 10;
-        let finalY = rect.top - panelHeight - 10;
+        let finalY = rect.top - panelHeight - 6;
         if (finalY < 60) { 
-            finalY = rect.bottom + 10;
+            finalY = rect.bottom + 6;
         }
         panel.style.left = finalX + 'px';
         panel.style.top = finalY + 'px';
+        // 核心修复：坐标计算完毕且定位贴合后，恢复透明度瞬间显示
+        panel.style.opacity = '1';
     }
     async function handleMsgAction(action) {
         document.getElementById('msg-action-panel').style.display = 'none';
@@ -2422,7 +2403,6 @@ ${langInstruction}
         bindMsgEvents();
         setTimeout(() => { container.scrollTop = container.scrollHeight; }, 10);
     }
-
     async function updateLastChatTime(targetContact = null) {
         const contact = targetContact || activeChatContact;
         if (!contact) return;
@@ -2597,7 +2577,6 @@ ${langInstruction}
             console.error("保存语音消息失败", e);
         }
     }
-
     // ====== 定位功能逻辑 ======
     function openLocationModal() {
         hideChatExtPanel();
@@ -2648,7 +2627,6 @@ ${langInstruction}
             console.error("保存定位消息失败", e);
         }
     }
-
     // 控制语音展开与波纹动画
     function toggleVoiceText(element) {
         const expandArea = element.querySelector('.voice-expand-area');
@@ -3014,4 +2992,4 @@ ${langInstruction}
                 }
             }
         }
-    }
+                }

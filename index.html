@@ -1,0 +1,1098 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="apple-mobile-web-app-title" content="mini">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="no-referrer">
+    <title>mini Phone</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <!-- 
+      1. 核心持久化方案：Dexie.js + IndexedDB
+      - 通过引入 Dexie.js 库封装 IndexedDB，用于存储聊天记录、角色信息、世界书数据、面具配置、图片、日记、论坛、购物、闲鱼、查手机、情侣空间数据等大量结构化、大容量数据，是项目最主要的持久化手段。
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
+    <!-- 
+      2. 通用轻量存储：localForage
+      - 引入 localForage 库，对 IndexedDB、WebSQL、localStorage 进行统一封装，适配不同浏览器环境，主要存储 API 配置、主题样式、字体设置、开关状态等轻量级键值对数据。
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <!-- PWA 配置，用于触发 Edge 安装为应用 -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+<div class="phone-screen">
+    <!-- 消息通知横幅 -->
+    <div id="notification-banner" class="notification-banner">
+        <div class="notif-avatar"><img id="notif-avatar-img" src=""></div>
+        <div class="notif-content">
+            <div class="notif-header">
+                <span class="notif-name" id="notif-name-text"></span>
+                <span class="notif-time" id="notif-time-text"></span>
+            </div>
+            <div class="notif-text" id="notif-msg-text"></div>
+        </div>
+    </div>
+    <!-- 菜单面板 -->
+    <div id="menu-panel">
+        <div class="menu-item" onclick="changeImage('url')">图片URL</div>
+        <div class="menu-item" onclick="document.getElementById('file-input').click()">本地文件</div>
+    </div>
+    <input type="file" id="file-input" style="display:none" accept="image/*" onchange="changeImage('file')">
+    <div class="swiper mySwiper">
+        <div class="swiper-wrapper">
+            <!-- 第一页 -->
+            <div class="swiper-slide">
+                <div class="page-content">
+                    <div class="top-music-bar">
+                        <div class="music-title-pill editable-text" id="text-music">Baby Song ıılılıl..* ☆ * . .</div>
+                        <div class="music-play-btn">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                    </div>
+                    <div class="profile-card widget-common" style="background: rgba(235, 235, 235, 0.6);">
+    <div class="profile-left">
+        <div class="miffy-avatar editable" id="avatar-1"><img src="https://via.placeholder.com/100"></div>
+        <div style="flex: 1;">
+            <div style="display: flex; align-items: center;">
+                <span class="editable-text" id="text-name" style="font-size:14px; font-weight:bold;">兔兔丸</span>
+                <!-- 这里的日期现在包裹在白色大圆角矩形胶囊里 -->
+                <span id="real-date" class="date-pill">26-02-06</span>
+                <div class="weather-week-group">
+                    <span class="sun-icon">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                    </span>
+                    <span id="real-week">周五</span>
+                </div>
+            </div>
+            <div class="editable-text" id="text-motto" style="font-size:10px;">BB啊 其实淡淡的就会顺顺的</div>
+        </div>
+    </div>
+    <div class="temp-display" style="font-weight: 600; color: #666;">-1°</div>
+</div>
+                    <div class="grid-layout-p1">
+                        <div class="widget-common square-widget editable" id="sq-widget-1" style="padding: 14px 12px; align-items: flex-start; justify-content: space-between;">
+                            <!-- 头像与时间区 -->
+                            <div style="display: flex; align-items: center; width: 100%; gap: 10px;">
+                                <div style="width: 38px; height: 38px; background: #eee; border-radius: 50%; overflow: hidden; flex-shrink: 0;">
+                                    <img src="https://via.placeholder.com/100" style="width: 100%; height: 100%; object-fit: cover;">
+                                </div>
+                                <div style="display: flex; flex-direction: column;">
+                                    <div id="big-clock" style="font-size: 20px; font-weight: 600; color: #333; line-height: 1;">00:47</div>
+                                    <div id="sub-date" style="color: #999; font-size: 10px; margin-top: 3px;">02-06 周五</div>
+                                </div>
+                            </div>
+                            <!-- 文字区 -->
+                            <div style="display: flex; flex-direction: column; width: 100%; margin-top: 2px;">
+                                <div class="editable-text" id="text-sq-name" style="font-size: 13px; font-weight: 600; color: #333; margin-bottom: 2px;">Angélica な</div>
+                                <div class="editable-text" id="text-sq-deco" style="font-size: 10px; color: #aaa; margin-bottom: 3px; letter-spacing: 1px;">⋆⁺₊⋆ ☾⋆⁺₊⋆ ☁︎</div>
+                                <div class="editable-text" id="text-sq-en" style="font-size: 10px; color: #888; line-height: 1.2;">I miss those days when we were happy</div>
+                            </div>
+                            <!-- 视频卡片区 -->
+                            <div style="width: 100%; background: #f4f4f4; border-radius: 12px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <div style="width: 18px; height: 18px; background: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                                        <svg viewBox="0 0 24 24" width="8" height="8" fill="#333" style="margin-left: 1.5px;"><path d="M8 5v14l11-7z"/></svg>
+                                    </div>
+                                    <span class="editable-text" id="text-sq-video" style="font-size: 9px; font-weight: 600; color: #555;">HOT SEVENTEEN</span>
+                                </div>
+                                <!-- 三点菜单 -->
+                                <div style="display: flex; gap: 2px;">
+                                    <div style="width: 3px; height: 3px; background: #bbb; border-radius: 50%;"></div>
+                                    <div style="width: 3px; height: 3px; background: #bbb; border-radius: 50%;"></div>
+                                    <div style="width: 3px; height: 3px; background: #bbb; border-radius: 50%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="icon-grid">
+                            <div class="app-icon" id="app-btn-novel"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>小说</span></div>
+                            <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>日记</span></div>
+                            <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>购物</span></div>
+                            <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>论坛</span></div>
+                        </div>
+                    </div>
+                    <div class="grid-layout-p1" style="grid-template-columns: 1fr 160px;">
+                        <div class="icon-grid">
+                            <div class="app-icon" id="app-btn-wechat"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>WeChat</span></div>
+                            <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>纪念日</span></div>
+                            <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>遇恋</span></div>
+                            <div class="app-icon" id="app-btn-worldbook"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>世界书</span></div>
+                        </div>
+                        <div class="widget-common" style="width: 160px; height: 160px; padding: 16px 14px; display: flex; flex-direction: column; justify-content: space-between; border-radius: 30px; background: rgba(255, 255, 255, 0.95); margin: 0 auto;">
+                            <!-- 头像区 -->
+                            <div class="editable" id="avatar-right-bottom" style="width: 42px; height: 42px; background: #eee; border-radius: 50%; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin: 0 auto; display: flex; align-items: center; justify-content: center;">
+                                <img src="https://via.placeholder.com/100" style="width: 100%; height: 100%; object-fit: cover; object-position: center;">
+                            </div>
+                            <!-- 时间日期区 -->
+                            <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
+                                <div style="display: flex; align-items: baseline; gap: 6px;">
+                                    <div id="rect-time" style="font-size: 26px; font-weight: 600; color: #333; line-height: 1;">00:47</div>
+                                    <div id="rect-week" style="font-size: 11px; color: #888; font-weight: 500;">星期五</div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 5px;">
+                                    <div id="rect-full-date" style="font-size: 11px; color: #999; font-weight: 500; letter-spacing: 0.5px;">06 / 02 / 2026</div>
+                                    <div class="editable-text" id="text-location" style="font-size: 11px; color: #999; font-weight: 500;">北京</div>
+                                    <span style="font-size: 10px; filter: grayscale(1);">🐾</span>
+                                </div>
+                            </div>
+                            <!-- 文字区 -->
+                            <div class="editable-text" id="text-quote" style="font-size: 10px; color: #aaa; line-height: 1.3; margin-top: 2px; letter-spacing: 0.5px;">°⋆☆行山水见百花，却无一胜你♡∂♡+..</div>
+                        </div>
+                </div>
+            </div>
+</div>
+            <!-- 第二页 -->
+            <div class="swiper-slide">
+                <div class="page-content">
+                    <div style="display:flex; gap:18px; margin-top: 15px;">
+                        <div class="polaroid-container editable" id="pl-1" style="width:160px; height:auto;">
+                            <div class="polaroid-img-box"><img src="https://via.placeholder.com/300"></div>
+                            <p class="editable-text" id="text-polaroid" style="font-size:11px; color:#999; margin-top:10px; text-align:center;">叫我兔兔丸</p>
+                        </div>
+                        <div class="icon-grid" style="flex:1;">
+                            <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>占位</span></div>
+                            <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>闲鱼</span></div>
+                            <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>查手机</span></div>
+                            <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>情侣空间</span></div>
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:space-around; padding: 15px 0;">
+                        <div class="polaroid-container editable" id="pl-2" style="width:100px; height:auto; transform:rotate(-6deg);"><div class="polaroid-img-box"><img src="https://via.placeholder.com/200"></div></div>
+                        <div class="polaroid-container editable" id="pl-3" style="width:100px; height:auto; transform:rotate(4deg);"><div class="polaroid-img-box"><img src="https://via.placeholder.com/200"></div></div>
+                        <div class="polaroid-container editable" id="pl-4" style="width:100px; height:auto; transform:rotate(-2deg);"><div class="polaroid-img-box"><img src="https://via.placeholder.com/200"></div></div>
+                    </div>
+                    <div style="display:flex; gap:18px; align-items:flex-end; margin-top: 5px;">
+                        <div class="icon-grid" style="flex:1;">
+                            <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>占位</span></div>
+                            <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>占位</span></div>
+                            <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>占位</span></div>
+                            <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>占位</span></div>
+                        </div>
+                        <div class="polaroid-container editable" id="pl-5" style="width:160px; height:auto; transform:rotate(2deg);">
+                             <div class="polaroid-img-box"><img src="https://via.placeholder.com/300"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 底部 Dock 栏 -->
+    <div class="dock">
+        <div class="dock-icon" id="dock-btn-theme"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div>
+        <div class="dock-icon" id="dock-btn-settings"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div>
+    </div>
+    <!-- ====== 主题应用页面 ====== -->
+    <div id="theme-app" class="full-app-page">
+        <div class="app-header">
+            <div class="app-back" onclick="closeThemeApp()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <div class="app-title">主题</div>
+            <div style="width:30px;"></div> 
+        </div>
+        <div class="app-body" style="padding: 15px 20px;">
+            <!-- 壁纸折叠项 -->
+            <div class="theme-accordion-item" id="accordion-wallpaper">
+                <div class="theme-section-header" onclick="toggleThemeSection('accordion-wallpaper')">
+                    <span>壁纸设置</span>
+                    <div class="theme-section-arrow">›</div>
+                </div>
+                <div class="theme-section-body">
+                    <div class="virtual-phone editable" id="wallpaper-preview" style="transform: scale(0.9);">
+                        <div class="virtual-phone-screen">
+                            <img src="https://via.placeholder.com/300x600?text=Wallpaper" alt="preview">
+                            <div class="virtual-notch"></div>
+                        </div>
+                    </div>
+                    <div class="action-buttons" style="margin-top: 15px;">
+                        <div class="btn-restore" onclick="restoreDefaultWallpaper()">重置背景壁纸</div>
+                    </div>
+                </div>
+            </div>
+            <!-- 字体折叠项 -->
+            <div class="theme-accordion-item" id="accordion-font">
+                <div class="theme-section-header" onclick="toggleThemeSection('accordion-font')">
+                    <span>全局字体</span>
+                    <div class="theme-section-arrow">›</div>
+                </div>
+                <div class="theme-section-body" style="align-items: flex-start;">
+                    <div class="settings-group">
+                        <label>字体 URL (如: https://.../font.ttf)</label>
+                        <div class="settings-row">
+                            <input type="text" id="font-url-input" class="settings-input" placeholder="输入字体链接">
+                            <button class="settings-btn" onclick="applyFontFromUrl()">应用</button>
+                        </div>
+                    </div>
+                    <div class="settings-group" style="margin-top: 10px;">
+                        <label>本地字体文件 (.ttf, .woff, .otf)</label>
+                        <div class="settings-row">
+                            <input type="file" id="font-file-input" style="display:none" accept=".ttf,.woff,.woff2,.otf" onchange="applyFontFromFile(event)">
+                            <button class="settings-btn" style="width: 100%;" onclick="document.getElementById('font-file-input').click()">选择本地字体并应用</button>
+                        </div>
+                    </div>
+                    <div class="settings-group" style="margin-top: 15px;">
+                        <label>全局粗细: <span id="font-weight-val">默认</span></label>
+                        <div style="display:flex; align-items:center; height:30px;">
+                            <input type="range" id="font-weight-slider" class="settings-slider" min="100" max="900" step="100" value="400" oninput="updateFontWeight(this.value)">
+                        </div>
+                    </div>
+                    <div class="settings-group" style="margin-top: 15px;">
+                        <label>全局大小: <span id="font-size-val">默认</span></label>
+                        <div style="display:flex; align-items:center; height:30px;">
+                            <input type="range" id="font-size-slider" class="settings-slider" min="10" max="24" step="1" value="14" oninput="updateFontSize(this.value)">
+                        </div>
+                    </div>
+                    <div class="action-buttons" style="margin-top: 15px;">
+                        <div class="btn-restore" onclick="restoreDefaultFont()">重置默认设置</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div> 
+    <!-- ====== 设置应用页面 ====== -->
+    <div id="settings-app" class="full-app-page">
+        <div class="app-header">
+            <div class="app-back" onclick="closeSettingsApp()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <div class="app-title">设置</div>
+            <div style="width:30px;"></div>
+        </div>
+        <div class="app-body" style="align-items: stretch; padding: 15px 20px;">
+            <!-- API 设置折叠项 -->
+            <div class="theme-accordion-item" id="accordion-api">
+                <div class="theme-section-header" onclick="toggleThemeSection('accordion-api')">
+                    <span>API 设置</span>
+                    <div class="theme-section-arrow">›</div>
+                </div>
+                <div class="theme-section-body" style="align-items: flex-start;">
+                    <div class="settings-group">
+                        <label>API 网址 (如: https://api.openai.com)</label>
+                        <input type="text" id="api-url" class="settings-input" placeholder="输入API地址，支持兼容格式">
+                    </div>
+                    <div class="settings-group">
+                        <label>API 密钥</label>
+                        <input type="password" id="api-key" class="settings-input" placeholder="sk-...">
+                    </div>
+                    <div class="settings-group">
+                        <label>模型选择</label>
+                        <div class="settings-row">
+                            <select id="api-model" class="settings-input" style="flex:1;">
+                                <option value="">请先拉取模型</option>
+                            </select>
+                            <button class="settings-btn" onclick="fetchModels()">实时拉取</button>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label>温度 (Temperature): <span id="temp-val">0.7</span></label>
+                        <div style="display:flex; align-items:center; height:30px;">
+                            <input type="range" id="api-temp" class="settings-slider" min="0" max="2" step="0.1" value="0.7" oninput="document.getElementById('temp-val').textContent=this.value">
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label>每次回复携带上文数量: <span id="ctx-val">10</span></label>
+                        <div style="display:flex; align-items:center; height:30px;">
+                            <input type="range" id="api-ctx" class="settings-slider" min="0" max="50" step="1" value="10" oninput="document.getElementById('ctx-val').textContent=this.value">
+                        </div>
+                    </div>
+                    <div class="action-buttons" style="flex-wrap: wrap; margin-top: 10px;">
+                        <div class="btn-restore" onclick="saveSettings()">保存</div>
+                        <div class="btn-restore" onclick="saveAsPreset()">存为预设</div>
+                        <div class="btn-restore" onclick="openPresetManager()">管理预设</div>
+                    </div>
+                </div>
+            </div>
+            <!-- 数据管理折叠项 -->
+            <div class="theme-accordion-item" id="accordion-data">
+                <div class="theme-section-header" onclick="toggleThemeSection('accordion-data')">
+                    <span>数据管理</span>
+                    <div class="theme-section-arrow">›</div>
+                </div>
+                <div class="theme-section-body">
+                    <div class="action-buttons" style="flex-direction: column; gap: 12px; width: 100%; margin-top: 0;">
+                        <div class="btn-restore" style="width: 100%;" id="btn-compress-data" onclick="compressData()">压缩文件</div>
+                        <div class="btn-restore" style="width: 100%;" onclick="openBatchExportModal()">批量导出</div>
+                        <div class="btn-restore" style="width: 100%;" onclick="exportAllData()">导出数据</div>
+                        <div class="btn-restore" style="width: 100%;" onclick="document.getElementById('import-data-file').click()">导入数据</div>
+                        <input type="file" id="import-data-file" style="display:none" accept=".json" onchange="importData(event)">
+                        <div class="btn-restore" style="width: 100%; color: #d96a6a;" onclick="resetAllData()">重置所有数据</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="preset-manager" onclick="if(event.target === this) closePresetManager()">
+        <div class="preset-card">
+            <div class="preset-header">
+                <span>预设管理</span>
+            </div>
+            <div id="preset-list">
+            </div>
+        </div>
+    </div>
+    <!-- ====== 世界书页面 ====== -->
+    <div id="worldbook-app" class="full-app-page">
+        <div class="app-header">
+            <div class="app-back" onclick="closeWorldbookApp()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <div class="app-title">世界书</div>
+            <div class="app-header-action" onclick="openWorldbookEditor()">
+                <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </div>
+        </div>
+        <div class="app-body" style="padding-top: 15px;">
+            <div class="wb-tabs">
+                <div class="wb-tab active" id="tab-global" onclick="switchWbCategory('global')">全局设定</div>
+                <div class="wb-tab" id="tab-local" onclick="switchWbCategory('local')">局部拓展</div>
+            </div>
+            <div class="wb-list" id="wb-list-container">
+            </div>
+        </div>
+    </div>
+    <!-- ====== 世界书编辑器弹窗 ====== -->
+    <div id="worldbook-editor" onclick="if(event.target === this) closeWorldbookEditor()" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 200; backdrop-filter: blur(5px); justify-content: center; align-items: center;">
+        <div class="preset-card" style="width: 85%; max-height: 85%; overflow-y: auto; padding-bottom: 20px;">
+            <div class="preset-header" style="justify-content: center;">
+                <span id="wb-editor-title">新建世界书</span>
+            </div>
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                <input type="hidden" id="wb-id">
+                <div class="settings-group" style="margin-bottom: 5px;">
+                    <label>条目名称</label>
+                    <input type="text" id="wb-title" class="settings-input" placeholder="输入设定标题...">
+                </div>
+                <div class="settings-group" style="margin-bottom: 5px;">
+                    <label>作用域分类</label>
+                    <div class="wb-radio-group">
+                        <label class="wb-radio-label"><input type="radio" name="wb-category" value="global" checked> 全局设定</label>
+                        <label class="wb-radio-label"><input type="radio" name="wb-category" value="local"> 局部拓展</label>
+                    </div>
+                </div>
+                <div class="settings-group" style="margin-bottom: 5px;">
+                    <label>触发机制</label>
+                    <div class="wb-radio-group">
+                        <label class="wb-radio-label"><input type="radio" name="wb-activation" value="always" onchange="toggleKeywordInput()" checked> 始终生效</label>
+                        <label class="wb-radio-label"><input type="radio" name="wb-activation" value="keyword" onchange="toggleKeywordInput()"> 关键词触发</label>
+                    </div>
+                </div>
+                <div class="settings-group" id="wb-keywords-group" style="display: none; margin-bottom: 5px;">
+                    <label>触发关键词 (用逗号分隔)</label>
+                    <input type="text" id="wb-keywords" class="settings-input" placeholder="例如: 魔法, 森林, 禁忌">
+                </div>
+                <div class="settings-group" style="margin-bottom: 5px;">
+                    <label>优先级</label>
+                    <select id="wb-priority" class="settings-input">
+                        <option value="high">高</option>
+                        <option value="medium" selected>中</option>
+                        <option value="low">低</option>
+                    </select>
+                </div>
+                <div class="settings-group" style="margin-bottom: 15px;">
+                    <label>详细设定内容</label>
+                    <textarea id="wb-content" class="settings-input" style="height: 120px;" placeholder="在此输入世界观、角色设定或背景故事..."></textarea>
+                </div>
+                <div class="action-buttons" style="margin-top: 5px;">
+                    <div class="btn-restore" onclick="saveWorldbook()">保存</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- ====== WeChat 应用页面 (去除全局 padding-top 避免露出桌面) ====== -->
+    <div id="wechat-app" class="full-app-page" style="background: #f7f7f7; padding-top: 0;">
+        <!-- WeChat 底部导航 Dock (重制版：4个按钮，精美无emoji) -->
+        <div class="wechat-dock">
+            <!-- 消息 (替换为完美圆形气泡SVG，防止扭曲) -->
+            <div class="wechat-dock-btn active" onclick="switchWechatTab('msg')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 12c0 5.523-4.477 10-10 10-1.886 0-3.65-.52-5.15-1.414L2 22l1.414-4.85C2.52 15.65 2 13.886 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10z"></path>
+                </svg>
+            </div>
+            <!-- 联系人 -->
+            <div class="wechat-dock-btn" onclick="switchWechatTab('contacts')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+            </div>
+            <!-- 朋友圈 -->
+            <div class="wechat-dock-btn" onclick="switchWechatTab('moments')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+            </div>
+            <!-- 我 -->
+            <div class="wechat-dock-btn" onclick="switchWechatTab('me')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+            </div>
+        </div>
+        <!-- 消息页面 (解决顶部灰色缝隙) -->
+        <div id="wechat-tab-msg" class="wechat-tab-page active" style="padding-top: 0; background: #f7f7f7;">
+            <div class="app-header">
+                <div class="app-back" onclick="closeWechatApp()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                </div>
+                <div class="app-title">消息</div>
+                <div class="app-header-action" onclick="openChatTypeModal()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </div>
+            </div>
+            <div class="app-body" style="padding: 15px 20px; background: #f7f7f7;">
+                <div id="chat-list-container" style="width: 100%; display: flex; flex-direction: column; gap: 12px;">
+                    <div id="no-msg-tip" style="color:#bbb; font-size:13px; margin-top:100px; text-align:center;">暂无新消息</div>
+                </div>
+            </div>
+        </div>
+        <!-- 联系人页面 -->
+        <div id="wechat-tab-contacts" class="wechat-tab-page" style="padding-top: 0; background: #f7f7f7;">
+            <div class="app-header">
+                <div class="app-back" onclick="closeWechatApp()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                </div>
+                <div class="app-title">联系人</div>
+                <div style="width:30px;"></div>
+            </div>
+            <div class="app-body" style="padding: 0; align-items: flex-start;">
+                <!-- 上方：直接复用“我”页面的样式，完美统一 -->
+                <div class="me-menu-list" style="margin-top: 15px; margin-bottom: 25px;">
+                    <div class="me-menu-item" onclick="openContactEditor()"><span>新朋友</span><span class="me-menu-arrow">›</span></div>
+                    <div class="me-menu-item"><span>群管理</span><span class="me-menu-arrow">›</span></div>
+                </div>
+                <div id="contact-group-container" style="width: 100%; padding: 0 20px; display: flex; flex-wrap: wrap; gap: 10px;">
+                </div>
+                <div id="contact-list-container" style="width: 100%; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+                </div>
+            </div>
+        </div>
+        <!-- 朋友圈页面 (无 padding-top，直接顶满屏幕掩盖壁纸) -->
+        <div id="wechat-tab-moments" class="wechat-tab-page">
+            <div class="moments-container">
+                <div class="moments-cover editable" id="wechat-moments-bg">
+                    <img src="https://via.placeholder.com/600x800?text=Moments+Cover">
+                    <div class="moments-float-btn" style="left:20px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg></div>
+                    <div class="moments-float-btn" style="right:20px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg></div>
+                    <div class="moments-user-info">
+                        <span class="moments-nickname editable-text" id="text-wechat-nick">兔兔丸</span>
+                        <div class="moments-avatar-sq editable" id="wechat-avatar-sq"><img src="https://via.placeholder.com/150"></div>
+                    </div>
+                </div>
+                <div class="moments-feed">
+                    ———— 只能查看近三天的内容 ————
+                </div>
+            </div>
+        </div>
+        <!-- 个人页面 -->
+        <div id="wechat-tab-me" class="wechat-tab-page" style="padding-top: 0; background: #f7f7f7;">
+            <div class="app-header">
+                <div class="app-back" onclick="closeWechatApp()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                </div>
+                <div class="app-title">个人中心</div>
+                <div style="width:30px;"></div>
+            </div>
+            <div class="app-body" style="padding: 10px 0;">
+                <div class="me-header">
+                    <div class="me-avatar-big editable" id="wechat-avatar-big"><img src="https://via.placeholder.com/200"></div>
+                    <div class="me-info">
+                        <div class="me-name editable-text" id="text-wechat-me-name">兔兔丸</div>
+                        <div class="me-sig editable-text" id="text-wechat-sig">微信号：mini_2026</div>
+                    </div>
+                </div>
+                <div class="me-menu-list">
+                    <div class="me-menu-item" onclick="openWalletApp()"><span>资产钱包</span><span class="me-menu-arrow">›</span></div>
+                    <div class="me-menu-item" onclick="openMaskPresets()"><span>面具预设</span><span class="me-menu-arrow">›</span></div>
+                    <div class="me-menu-item"><span>收藏记录</span><span class="me-menu-arrow">›</span></div>
+                    <div class="me-menu-item" onclick="openEmoticonApp()"><span>表情包库</span><span class="me-menu-arrow">›</span></div>
+                    <div class="me-menu-item"><span>聊天美化</span><span class="me-menu-arrow">›</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- ====== 资产钱包页面 (纯净高级极简版) ====== -->
+    <div id="wallet-app" class="full-app-page" style="background: #f4f5f7;">
+        <div class="app-header" style="background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none;">
+            <div class="app-back" onclick="closeWalletApp()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <div class="app-title">资产与服务</div>
+            <div style="width:36px;"></div>
+        </div>
+        <div class="app-body" style="padding: 10px 20px; align-items: stretch; display: flex; flex-direction: column; flex: 1;">
+            <!-- 极简白色高级余额卡片 -->
+            <div class="wallet-card-new">
+                <div class="wallet-top-row">
+                    <span>可用余额</span>
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                </div>
+                <div class="wallet-balance-box">
+                    <span>¥</span><span class="wallet-balance-num editable-text" id="text-wallet-bal">8,650.00</span>
+                </div>
+                <div class="wallet-action-row">
+                    <div class="wallet-action-btn">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+                        充值
+                    </div>
+                    <div class="wallet-action-btn">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        提现
+                    </div>
+                </div>
+        </div>
+            <!-- 中部横向图标组 -->
+            <div class="wallet-grid-icons">
+                <!-- 理财图标 -->
+                <div class="wallet-grid-icon-btn">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+                </div>
+                <!-- 银行卡图标 -->
+                <div class="wallet-grid-icon-btn">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                </div>
+                <!-- 支付密码图标 -->
+                <div class="wallet-grid-icon-btn">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                </div>
+                <!-- 免密支付图标 (安全盾牌) -->
+                <div class="wallet-grid-icon-btn">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>
+                </div>
+            </div>
+<!-- 底部纯白面板：近期账单框架与占位 -->
+            <div class="wallet-bill-section">
+                <div class="wallet-bill-header" style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <span class="title" style="font-size: 15px; font-weight: 600; color: #444;">近期账单</span>
+                    <span class="more" style="font-size: 12px; color: #aaa;">查看全部 ›</span>
+                </div>
+                <!-- 占位空状态区域 (高度自适应撑满居中) -->
+                <div style="display: flex; justify-content: center; align-items: center; flex: 1; min-height: 180px;">
+                    <span class="editable-text" id="text-wallet-empty-bill" style="font-size: 13px; color: #ccc; letter-spacing: 1px; font-weight: 400;">暂无账单详情</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- ====== 新增：面具预设页面 ====== -->
+    <div id="mask-presets-app" class="full-app-page">
+        <div class="app-header">
+            <div class="app-back" onclick="closeMaskPresets()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <div class="app-title">面具预设</div>
+            <div class="app-header-action" onclick="openMaskEditor()">
+                <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </div>
+        </div>
+        <div class="app-body" style="padding-top: 15px;">
+            <div class="wb-list" id="mask-list-container"></div>
+        </div>
+    </div>
+<!-- ====== 表情包库页面 ====== -->
+    <div id="emoticon-app" class="full-app-page">
+        <div class="app-header">
+            <div class="app-back" onclick="closeEmoticonApp()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <div class="app-title">表情包库</div>
+            <div class="emoticon-header-actions" style="margin-right: 10px;">
+                <div class="emoticon-action-btn" id="emoticon-manage-btn" onclick="toggleEmoticonManage()">管理</div>
+                <div class="app-header-action" onclick="openEmoticonEditor()">
+                    <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </div>
+            </div>
+        </div>
+        <div class="app-body" style="padding-top: 15px;">
+            <div class="emoticon-group-container" id="emoticon-group-list">
+                <!-- 由 JS 动态填充 -->
+            </div>
+            <div class="emoticon-grid" id="emoticon-grid-container">
+                <!-- 由 JS 动态填充 -->
+            </div>
+        </div>
+    </div>
+    <!-- ====== 面具编辑弹窗 ====== -->
+    <div id="mask-editor-modal" onclick="if(event.target === this) closeMaskEditor()" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 200; backdrop-filter: blur(5px); justify-content: center; align-items: center;">
+        <div class="preset-card" style="width: 85%; max-height: 80%; overflow-y: auto; padding-bottom: 20px;">
+            <div class="preset-header" style="justify-content: center;">
+                <span id="mask-editor-title">添加面具设定</span>
+            </div>
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 15px; align-items: center;">
+                <input type="hidden" id="mask-edit-id">
+                <div style="position: relative; width: 80px; height: 80px; border-radius: 50%; background: #fdfdfd; border: 1px solid #f0f0f0; box-shadow: 0 4px 12px rgba(0,0,0,0.04); display: flex; justify-content: center; align-items: center; overflow: hidden; cursor: pointer;" onclick="document.getElementById('mask-avatar-input').click()">
+                    <span id="mask-avatar-text" style="color: #f0f0f0; font-size: 28px; font-weight: bold; font-family: Arial, sans-serif;">Me</span>
+                    <img id="mask-avatar-preview" src="" style="display: none; width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;">
+                </div>
+                <input type="file" id="mask-avatar-input" style="display:none" accept="image/*" onchange="handleMaskAvatarChange(event)">
+                <div class="settings-group" style="width: 100%; margin-bottom: 5px;">
+                    <label>姓名</label>
+                    <input type="text" id="mask-name" class="settings-input" placeholder="输入用户姓名">
+                </div>
+                <div class="settings-group" style="width: 100%; margin-bottom: 5px;">
+                    <label>性别</label>
+                    <div class="wb-radio-group">
+                        <label class="wb-radio-label"><input type="radio" name="mask-gender" value="女" checked> 女</label>
+                        <label class="wb-radio-label"><input type="radio" name="mask-gender" value="男"> 男</label>
+                        <label class="wb-radio-label"><input type="radio" name="mask-gender" value="其他"> 其他</label>
+                    </div>
+                </div>
+                <div class="settings-group" style="width: 100%; margin-bottom: 15px;">
+                    <label>详细设定</label>
+                    <textarea id="mask-detail" class="settings-input" style="height: 100px;" placeholder="输入详细设定..."></textarea>
+                </div>
+                <div class="action-buttons" style="margin-top: 10px;">
+                    <div class="btn-restore" onclick="saveMaskPreset()">保存设定</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- ====== 联系人编辑弹窗 ====== -->
+    <div id="contact-editor-modal" onclick="if(event.target === this) closeContactEditor()" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 200; backdrop-filter: blur(5px); justify-content: center; align-items: center;">
+        <div class="preset-card" style="width: 90%; max-height: 85%; overflow-y: auto; padding-bottom: 20px;">
+            <div class="preset-header" style="justify-content: center;">
+                <span id="contact-editor-title">添加新朋友</span>
+            </div>
+            <div style="padding: 15px; display: flex; flex-direction: column; gap: 15px;">
+                <input type="hidden" id="contact-edit-id">
+                <!-- 角色设定区 -->
+                <div style="font-size: 14px; font-weight: 600; color: #444; border-bottom: 1px solid #eee; padding-bottom: 5px;">角色设定</div>
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <div style="position: relative; width: 60px; height: 60px; border-radius: 50%; background: #fdfdfd; border: 1px solid #f0f0f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04); display: flex; justify-content: center; align-items: center; overflow: hidden; cursor: pointer; flex-shrink: 0;" onclick="document.getElementById('contact-role-avatar-input').click()">
+                        <span id="contact-role-avatar-text" style="color: #ccc; font-size: 12px;">头像</span>
+                        <img id="contact-role-avatar-preview" src="" style="display: none; width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;">
+                    </div>
+                    <input type="file" id="contact-role-avatar-input" style="display:none" accept="image/*" onchange="handleContactAvatarChange(event, 'role')">
+                    <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                        <input type="text" id="contact-role-name" class="settings-input" style="padding: 8px 12px;" placeholder="角色姓名">
+                        <select id="contact-role-group" class="settings-input" style="padding: 8px 12px;">
+                            <option value="">ALL (不分组)</option>
+                            <!-- JS 动态填充其他分组 -->
+                        </select>
+                    </div>
+                </div>
+                <!-- 补回并改为下拉框的角色性别 -->
+                <div class="settings-group" style="margin-bottom: 0;">
+                    <label>角色性别</label>
+                    <select id="contact-role-gender" class="settings-input">
+                        <option value="男" selected>男</option>
+                        <option value="女">女</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </div>
+                <div class="settings-group" style="margin-bottom: 0;">
+                    <label>语言</label>
+                    <select id="contact-role-lang" class="settings-input">
+                        <option value="中" selected>中</option>
+                        <option value="英">英</option>
+                        <option value="日">日</option>
+                        <option value="韩">韩</option>
+                        <option value="法">法</option>
+                        <option value="泰">泰</option>
+                    </select>
+                </div>
+                <div class="settings-group" style="margin-bottom: 0;">
+                    <label>详细设定</label>
+                    <textarea id="contact-role-detail" class="settings-input" style="height: 60px;" placeholder="输入角色详细设定..."></textarea>
+                </div>
+                <!-- 用户设定区 -->
+                <div style="font-size: 14px; font-weight: 600; color: #444; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <span>用户设定 (我的身份)</span>
+                    <select id="contact-mask-select" class="settings-input" style="width: 100px; padding: 4px; font-size: 12px; height: auto;" onchange="applyMaskToContact()">
+                        <option value="">使用面具...</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <div style="position: relative; width: 60px; height: 60px; border-radius: 50%; background: #fdfdfd; border: 1px solid #f0f0f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04); display: flex; justify-content: center; align-items: center; overflow: hidden; cursor: pointer; flex-shrink: 0;" onclick="document.getElementById('contact-user-avatar-input').click()">
+                        <span id="contact-user-avatar-text" style="color: #ccc; font-size: 12px;">头像</span>
+                        <img id="contact-user-avatar-preview" src="" style="display: none; width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;">
+                    </div>
+                    <input type="file" id="contact-user-avatar-input" style="display:none" accept="image/*" onchange="handleContactAvatarChange(event, 'user')">
+                    <div style="flex: 1;">
+                        <input type="text" id="contact-user-name" class="settings-input" style="padding: 8px 12px;" placeholder="我的姓名">
+                    </div>
+                </div>
+                <div class="settings-group" style="margin-bottom: 0;">
+                    <label>我的性别</label>
+                    <select id="contact-user-gender" class="settings-input">
+                        <option value="女" selected>女</option>
+                        <option value="男">男</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </div>
+                <div class="settings-group" style="margin-bottom: 0;">
+                    <label>详细设定</label>
+                    <textarea id="contact-user-detail" class="settings-input" style="height: 60px;" placeholder="输入我的详细设定..."></textarea>
+                </div>
+                <!-- 挂载世界书区 -->
+                <div style="font-size: 14px; font-weight: 600; color: #444; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 10px;">挂载世界书</div>
+                <div class="settings-group" style="margin-bottom: 0; margin-top: 5px;">
+                    <label>选择世界书设定 (可多选)</label>
+                    <div id="contact-worldbook-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 120px; overflow-y: auto; padding: 10px; border: 1px solid #eee; border-radius: 12px; background: #fdfdfd; box-shadow: inset 0 2px 5px rgba(0,0,0,0.01);">
+                    </div>
+                </div>
+                <!-- NPC 拓展区 -->
+                <div style="font-size: 14px; font-weight: 600; color: #444; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <span>NPC 拓展向</span>
+                    <button class="settings-btn" style="padding: 4px 10px; font-size: 12px;" onclick="addContactNpc()">+ 添加NPC</button>
+                </div>
+                <div id="contact-npc-list" style="display: flex; flex-direction: column; gap: 10px;">
+                </div>
+                <div class="action-buttons" style="margin-top: 15px;">
+                    <div class="btn-restore" onclick="saveContact()">保存联系人</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- ====== 聊天类型选择弹窗 ====== -->
+    <div id="chat-type-modal" onclick="if(event.target === this) closeChatTypeModal()" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 200; backdrop-filter: blur(5px); justify-content: center; align-items: center;">
+        <div class="preset-card" style="width: 60%; overflow: hidden; background: rgba(255,255,255,0.95); backdrop-filter: blur(20px);">
+            <div class="me-menu-item" style="border-radius: 0; border-bottom: 1px solid #eee; justify-content: center; font-weight: 500;" onclick="openSingleChatSelect()">发起单聊</div>
+            <div class="me-menu-item" style="border-radius: 0; justify-content: center; font-weight: 500;" onclick="alert('群聊功能未开发')">发起群聊</div>
+        </div>
+    </div>
+<!-- ====== 表情包导入编辑器弹窗 ====== -->
+    <div id="emoticon-editor-modal" onclick="if(event.target === this) closeEmoticonEditor()" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 200; backdrop-filter: blur(5px); justify-content: center; align-items: center;">
+        <div class="preset-card" style="width: 85%; max-height: 80%; overflow-y: auto; padding-bottom: 20px;">
+            <div class="preset-header" style="justify-content: center;">
+                <span>批量添加表情包</span>
+            </div>
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                <div class="settings-group" style="margin-bottom: 5px;">
+                    <label>选择分组</label>
+                    <select id="emoticon-select-group" class="settings-input">
+                        <!-- 动态填充 -->
+                    </select>
+                </div>
+                <div class="settings-group" style="margin-bottom: 5px;">
+                    <label>批量输入 (格式: 描述:链接)</label>
+                    <textarea id="emoticon-batch-input" class="settings-input" style="height: 150px;" placeholder="例如：&#10;比心:https://example.com/1.gif&#10;开心:https://example.com/2.png&#10;（每行一个描述加冒号加链接）"></textarea>
+                </div>
+                <div style="font-size: 11px; color: #999; line-height: 1.4; background: #f9f9f9; padding: 10px; border-radius: 10px;">
+                    提示：描述与链接之间请使用冒号（: 或 ：）分隔。
+                </div>
+                <div class="action-buttons" style="margin-top: 5px;">
+                    <div class="btn-restore" onclick="saveEmoticons()">保存并导入</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- ====== 单聊选择联系人弹窗 ====== -->
+    <div id="single-chat-select-modal" onclick="if(event.target === this) closeSingleChatSelect()" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 200; backdrop-filter: blur(5px); justify-content: center; align-items: center;">
+        <div class="preset-card" style="width: 85%; max-height: 80%; overflow-y: auto; padding-bottom: 20px;">
+            <div class="preset-header" style="justify-content: center;">
+                <span>选择联系人</span>
+            </div>
+            <div id="single-chat-contact-list" style="padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+                <!-- 动态填充 -->
+            </div>
+        </div>
+    </div>
+    <!-- ====== 批量导出弹窗 ====== -->
+    <div id="batch-export-modal" onclick="if(event.target === this) closeBatchExportModal()" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 200; backdrop-filter: blur(5px); justify-content: center; align-items: center;">
+        <div class="preset-card" style="width: 85%; max-height: 80%; overflow-y: auto; padding-bottom: 20px;">
+            <div class="preset-header" style="justify-content: center;">
+                <span>选择要导出的项目</span>
+            </div>
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                <div class="settings-group" style="margin-bottom: 0;">
+                    <div style="display: flex; flex-direction: column; gap: 12px;" id="export-checkbox-list">
+                        <label class="wb-radio-label"><input type="checkbox" value="settings" checked> API与基础设置</label>
+                        <label class="wb-radio-label"><input type="checkbox" value="theme" checked> 主题与壁纸</label>
+                        <label class="wb-radio-label"><input type="checkbox" value="worldbook" checked> 世界书数据</label>
+                        <label class="wb-radio-label"><input type="checkbox" value="contacts" checked> 联系人与聊天记录</label>
+                        <label class="wb-radio-label"><input type="checkbox" value="masks" checked> 面具预设</label>
+                        <label class="wb-radio-label"><input type="checkbox" value="emoticons" checked> 表情包库</label>
+                        <label class="wb-radio-label"><input type="checkbox" value="images" checked> 图片资源(头像/背景等)</label>
+                        <label class="wb-radio-label" style="color: #aaa;"><input type="checkbox" value="diary" disabled> 日记数据 (未开发)</label>
+                        <label class="wb-radio-label" style="color: #aaa;"><input type="checkbox" value="forum" disabled> 论坛数据 (未开发)</label>
+                        <label class="wb-radio-label" style="color: #aaa;"><input type="checkbox" value="shopping" disabled> 购物数据 (未开发)</label>
+                        <label class="wb-radio-label" style="color: #aaa;"><input type="checkbox" value="xianyu" disabled> 闲鱼数据 (未开发)</label>
+                        <label class="wb-radio-label" style="color: #aaa;"><input type="checkbox" value="checkphone" disabled> 查手机数据 (未开发)</label>
+                        <label class="wb-radio-label" style="color: #aaa;"><input type="checkbox" value="couplespace" disabled> 情侣空间数据 (未开发)</label>
+                        <label class="wb-radio-label" style="color: #aaa;"><input type="checkbox" value="novel" disabled> 小说数据 (未开发)</label>
+                        <label class="wb-radio-label" style="color: #aaa;"><input type="checkbox" value="anniversary" disabled> 纪念日数据 (未开发)</label>
+                        <label class="wb-radio-label" style="color: #aaa;"><input type="checkbox" value="meetlove" disabled> 遇恋数据 (未开发)</label>
+                    </div>
+                </div>
+                <div class="action-buttons" style="margin-top: 10px;">
+                    <div class="btn-restore" onclick="executeBatchExport()">确认导出</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- ====== 小说应用页面 ====== -->
+    <div id="novel-app" class="full-app-page">
+        <div class="app-header">
+            <div class="app-back" onclick="closeNovelApp()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <div class="app-title" id="novel-header-title">首页</div>
+            <div style="width:36px;"></div>
+        </div>
+        <div class="novel-body">
+            <!-- 首页内容 -->
+            <div id="novel-tab-home" class="novel-tab-page active">
+                <div style="font-size: 13px; color: #ccc; text-align: center; margin-top: 100px;">精选推荐内容加载中...</div>
+            </div>
+            <!-- 书架内容 -->
+            <div id="novel-tab-bookshelf" class="novel-tab-page">
+                <div style="font-size: 13px; color: #ccc; text-align: center; margin-top: 100px;">书架空空如也</div>
+            </div>
+            <!-- 个人内容 -->
+            <div id="novel-tab-me" class="novel-tab-page">
+                <div style="font-size: 13px; color: #ccc; text-align: center; margin-top: 100px;">个人设置</div>
+            </div>
+        </div>
+        <!-- 底部文字样式 Dock -->
+        <div class="novel-dock">
+            <div class="novel-dock-item active" onclick="switchNovelTab('home', '首页')">首页</div>
+            <div class="novel-dock-item" onclick="switchNovelTab('bookshelf', '书架')">书架</div>
+            <div class="novel-dock-item" onclick="switchNovelTab('me', '个人')">个人</div>
+        </div>
+    </div>
+<!-- ====== 聊天界面页面 (极致线条审美版) ====== -->
+    <div id="chat-window" class="full-app-page">
+        <div class="app-header">
+            <div class="app-back" onclick="closeChatWindow()">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <div class="app-title" id="chat-current-name">角色姓名</div>
+            <div class="app-header-action">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </div>
+        </div>
+        <!-- 收起面板的逻辑 -->
+        <div class="chat-body" id="chat-msg-container" onclick="hideChatExtPanel()"></div>
+        <!-- 聊天菜单面板 -->
+        <div id="chat-ext-panel" class="chat-ext-panel">
+            <div class="chat-ext-grid">
+                <!-- 1. 相机 -->
+                <div class="chat-ext-item" onclick="openCameraModal()">
+                    <div class="chat-ext-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg></div>
+                    <span class="chat-ext-text">相机</span>
+                </div>
+                <!-- 2. 图片 -->
+                <div class="chat-ext-item" onclick="document.getElementById('chat-image-input').click()">
+                    <div class="chat-ext-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></div>
+                    <span class="chat-ext-text">图片</span>
+                </div>
+                <!-- 3. 语音 -->
+                <div class="chat-ext-item" onclick="openVoiceModal()">
+                    <div class="chat-ext-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg></div>
+                    <span class="chat-ext-text">语音</span>
+                </div>
+                <!-- 4. 红包 -->
+                <div class="chat-ext-item">
+                    <div class="chat-ext-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="16" rx="2" ry="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><circle cx="12" cy="10" r="2"></circle></svg></div>
+                    <span class="chat-ext-text">红包</span>
+                </div>
+                <!-- 5. 转账 -->
+                <div class="chat-ext-item">
+                    <div class="chat-ext-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg></div>
+                    <span class="chat-ext-text">转账</span>
+                </div>
+                <!-- 6. 定位 -->
+                <div class="chat-ext-item" onclick="openLocationModal()">
+                    <div class="chat-ext-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></div>
+                    <span class="chat-ext-text">定位</span>
+                </div>
+                <!-- 7. 外卖 -->
+                <div class="chat-ext-item">
+                    <div class="chat-ext-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></div>
+                    <span class="chat-ext-text">外卖</span>
+                </div>
+                <!-- 8. 礼物 -->
+                <div class="chat-ext-item">
+                    <div class="chat-ext-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg></div>
+                    <span class="chat-ext-text">礼物</span>
+                </div>
+                <!-- 9. 电话 -->
+                <div class="chat-ext-item">
+                    <div class="chat-ext-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></div>
+                    <span class="chat-ext-text">电话</span>
+                </div>
+                <!-- 10. 视频 -->
+                <div class="chat-ext-item">
+                    <div class="chat-ext-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></div>
+                    <span class="chat-ext-text">视频</span>
+                </div>
+                <!-- 11. 线下 -->
+                <div class="chat-ext-item">
+                    <div class="chat-ext-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
+                    <span class="chat-ext-text">线下</span>
+                </div>
+                <!-- 12. 时间轴 -->
+                <div class="chat-ext-item">
+                    <div class="chat-ext-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+                    <span class="chat-ext-text">时间轴</span>
+                </div>
+            </div>
+        </div>
+        <!-- 聊天表情悬浮面板 -->
+        <div id="chat-emoji-panel" class="chat-emoji-panel">
+            <div class="chat-emoji-groups" id="chat-emoji-groups"></div>
+            <div class="chat-emoji-grid" id="chat-emoji-grid"></div>
+        </div>
+        <!-- 隐藏的图片选择器 -->
+        <input type="file" id="chat-image-input" style="display:none" accept="image/*" onchange="sendChatImage(event)">
+        <!-- 引用悬浮框 -->
+        <div id="quote-reply-box">
+            <div class="quote-text" id="quote-reply-text">回复：原文...</div>
+            <div class="quote-close" onclick="cancelQuote()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </div>
+        </div>
+        <!-- 输入区 -->
+        <div class="chat-footer">
+            <div class="icon-btn-line" id="chat-ext-btn" onclick="toggleChatExtPanel()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="16"></line>
+                    <line x1="8" y1="12" x2="16" y2="12"></line>
+                </svg>
+            </div>
+            <div class="chat-input-container">
+                <input type="text" id="chat-input-main" class="chat-input-field" placeholder="输入消息..." onfocus="hideChatExtPanel()">
+            </div>
+            <div class="icon-btn-line" id="chat-emoji-btn" onclick="toggleChatEmojiPanel()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                    <circle cx="9" cy="9" r="0.5" fill="currentColor"></circle>
+                    <circle cx="15" cy="9" r="0.5" fill="currentColor"></circle>
+                </svg>
+            </div>
+            <!-- 线条风猫爪：缩小爱心比例，增强圆润感 -->
+            <button class="paw-send-line" onclick="performSendMessage()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <!-- 4个极简小圆点 -->
+                    <circle cx="7" cy="8" r="1.2" fill="none"></circle>
+                    <circle cx="10.5" cy="5" r="1.2" fill="none"></circle>
+                    <circle cx="14.5" cy="5" r="1.2" fill="none"></circle>
+                    <circle cx="18" cy="8" r="1.2" fill="none"></circle>
+                    <!-- 比例完美的倒置线条爱心 (Base Pad) -->
+                    <path d="M12.5 14.5 C12.5 14.5 17 11.5 17 9.5 C17 8.5 16.2 7.8 15.3 7.8 C14.6 7.8 14 8.2 12.5 9 C11 8.2 10.4 7.8 9.7 7.8 C8.8 7.8 8 8.5 8 9.5 C8 11.5 12.5 14.5 12.5 14.5 Z" 
+                          transform="rotate(180, 12.5, 11)" />
+                </svg>
+            </button>
+        </div>
+        <!-- 多选底部操作栏 -->
+        <div id="multi-select-bar">
+            <div class="multi-action-btn" onclick="toggleSelectAllMsg()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                <span id="multi-select-all-text">全选</span>
+            </div>
+            <div class="multi-action-btn" onclick="deleteSelectedMsgs()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                删除
+            </div>
+            <div class="multi-action-btn" onclick="alert('转发功能暂未实装')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 10 20 15 15 20"></polyline><path d="M4 4v7a4 4 0 0 0 4 4h12"></path></svg>
+                转发
+            </div>
+            <div class="multi-action-btn" onclick="exitMultiSelectMode()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                取消
+            </div>
+        </div>
+    </div>
+    <!-- 消息长按菜单 -->
+    <div id="msg-action-panel">
+        <div class="msg-action-grid">
+            <div class="msg-action-item" onclick="handleMsgAction('copy')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>复制</div>
+            <div class="msg-action-item" onclick="handleMsgAction('edit')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>编辑</div>
+            <div class="msg-action-item" onclick="handleMsgAction('quote')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 10 20 15 15 20"></polyline><path d="M4 4v7a4 4 0 0 0 4 4h12"></path></svg>引用</div>
+            <div class="msg-action-item" onclick="handleMsgAction('multi')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>多选</div>
+            <div class="msg-action-item" id="msg-action-recall-del" onclick="handleMsgAction('recall_del')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>撤回</div>
+            <div class="msg-action-item" onclick="handleMsgAction('rollback')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>回溯</div>
+        </div>
+    </div>
+    <!-- 消息编辑弹窗 -->
+    <div id="msg-edit-modal" onclick="if(event.target === this) closeMsgEditModal()" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 200; backdrop-filter: blur(5px); justify-content: center; align-items: center;">
+        <div class="preset-card" style="width: 85%;">
+            <div class="preset-header" style="justify-content: center;"><span>编辑消息</span></div>
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                <textarea id="msg-edit-content" class="settings-input" style="height: 100px; resize: none;"></textarea>
+                <div class="action-buttons" style="margin-top: 5px;">
+                    <div class="btn-restore" onclick="saveMsgEdit()">保存</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 撤回消息查看弹窗 -->
+    <div id="msg-recall-modal" onclick="if(event.target === this) closeMsgRecallModal()" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 200; backdrop-filter: blur(5px); justify-content: center; align-items: center;">
+        <div class="preset-card" style="width: 85%;">
+            <div class="preset-header" style="justify-content: center;"><span>撤回的消息</span></div>
+            <div style="padding: 20px; font-size: 14px; color: #444; line-height: 1.5; word-wrap: break-word;" id="msg-recall-content"></div>
+        </div>
+    </div>
+    <!-- 相机拍摄弹窗 -->
+    <div id="camera-modal" onclick="if(event.target === this) closeCameraModal()" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 200; backdrop-filter: blur(5px); justify-content: center; align-items: center;">
+        <div class="preset-card" style="width: 85%;">
+            <div class="preset-header" style="justify-content: center;"><span>拍摄相片</span></div>
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                <textarea id="camera-desc-input" class="settings-input" style="height: 100px; resize: none;" placeholder="描述拍摄的内容与场景..."></textarea>
+                <div class="action-buttons" style="margin-top: 5px;">
+                    <div class="btn-restore" onclick="sendCameraPhoto()">发送</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+    <!-- 语音录制弹窗 -->
+    <div id="voice-modal" onclick="if(event.target === this) closeVoiceModal()" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 200; backdrop-filter: blur(5px); justify-content: center; align-items: center;">
+        <div class="preset-card" style="width: 85%;">
+            <div class="preset-header" style="justify-content: center;"><span>录制语音</span></div>
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                <textarea id="voice-content-input" class="settings-input" style="height: 100px; resize: none;" placeholder="输入语音要转化的文字内容..."></textarea>
+                <div class="action-buttons" style="margin-top: 5px;">
+                    <div class="btn-restore" onclick="sendVoiceMessage()">发送</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 定位发送弹窗 -->
+    <div id="location-modal" onclick="if(event.target === this) closeLocationModal()" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 200; backdrop-filter: blur(5px); justify-content: center; align-items: center;">
+        <div class="preset-card" style="width: 85%;">
+            <div class="preset-header" style="justify-content: center;"><span>发送定位</span></div>
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                <div class="settings-group" style="margin-bottom: 0;">
+                    <label>具体地址</label>
+                    <input type="text" id="location-address-input" class="settings-input" placeholder="例如：星光咖啡馆">
+                </div>
+                <div class="settings-group" style="margin-bottom: 0;">
+                    <label>距离 (仅输入数字和单位, 如 2.5km)</label>
+                    <input type="text" id="location-distance-input" class="settings-input" placeholder="例如：2.5km 或 500m">
+                </div>
+                <div class="action-buttons" style="margin-top: 10px;">
+                    <div class="btn-restore" onclick="sendLocationMessage()">发送</div>
+                </div>
+            </div>
+        </div>
+    </div>
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+<script src="script.js"></script>
+<!-- 注册 Service Worker，用于触发 Edge 安装为应用 -->
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js').catch(err => {
+                console.log('ServiceWorker 注册失败: ', err);
+            });
+        });
+    }
+</script>
+</body>
+</html>

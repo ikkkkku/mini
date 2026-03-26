@@ -1848,48 +1848,51 @@ container.appendChild(item);
             container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
             bindMsgEvents();
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-            // 触发角色回复
-            await triggerRoleReply();
         } catch (err) {
             console.error("发送表情消息失败", err);
         }
     }
+
     function closeChatWindow() {
         document.getElementById('chat-window').style.display = 'none';
         hideChatExtPanel();
         // 注释掉 activeChatContact = null; 防止后台横幅失效
     }
     let isReplying = false;
-    async function appendRoleMessage(content, quoteText = '') {
+    async function appendRoleMessage(content, quoteText = '', targetContact = null) {
+        // 核心修复：优先使用传入的锁定联系人，防串联
+        const contact = targetContact || activeChatContact;
+        if (!contact) return null;
+
         const container = document.getElementById('chat-msg-container');
-        const roleAvatar = activeChatContact.roleAvatar || 'https://via.placeholder.com/100';
-        const myAvatar = activeChatContact.userAvatar || 'https://via.placeholder.com/100';
+        const roleAvatar = contact.roleAvatar || 'https://via.placeholder.com/100';
+        const myAvatar = contact.userAvatar || 'https://via.placeholder.com/100';
         const timeStr = getAmPmTime();
         try {
             const newMsgId = await chatListDb.messages.add({
-                contactId: activeChatContact.id,
+                contactId: contact.id,
                 sender: 'role',
                 content: content,
                 timeStr: timeStr,
                 quoteText: quoteText
             });
-            const chat = await chatListDb.chats.where('contactId').equals(activeChatContact.id).first();
+            const chat = await chatListDb.chats.where('contactId').equals(contact.id).first();
             if (chat) {
                 await chatListDb.chats.update(chat.id, { lastTime: timeStr });
                 renderChatList();
             }
             const chatWindow = document.getElementById('chat-window');
-            if (chatWindow.style.display === 'flex') {
-                // 如果在聊天页面，正常渲染气泡
+            // 核心修复：必须判断当前所在的聊天界面是不是这个锁定的联系人
+            const isCurrentChatActive = chatWindow.style.display === 'flex' && activeChatContact && activeChatContact.id === contact.id;
+
+            if (isCurrentChatActive) {
                 const msgObj = { id: newMsgId, sender: 'role', content: content, timeStr: timeStr, quoteText: quoteText };
                 container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
                 bindMsgEvents();
                 container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
             } else {
-                // 如果不在聊天页面，弹出横幅通知
                 const pureContent = extractMsgPureText(content);
-                // 修改：补充第五个参数 activeChatContact.id 
-                showNotificationBanner(roleAvatar, activeChatContact.roleName || '角色', pureContent, timeStr, activeChatContact.id);
+                showNotificationBanner(roleAvatar, contact.roleName || '角色', pureContent, timeStr, contact.id);
             }
             return newMsgId;
         } catch (e) {
@@ -1899,17 +1902,24 @@ container.appendChild(item);
     }
     // 新增：触发角色回复逻辑 (API请求、锁机制、打字状态、JSON约束)
     async function triggerRoleReply() {
-        if (isReplying) return;
+        if (isReplying || !activeChatContact) return;
         isReplying = true;
+        
+        // 核心修复：在此刻“拍下快照”锁定联系人，后续所有操作只认这个锁定的联系人，杜绝串台！
+        const lockedContact = activeChatContact;
+
         const input = document.getElementById('chat-input-main');
         const sendBtn = document.querySelector('.paw-send-line');
         const titleEl = document.getElementById('chat-current-name');
-        const originalTitle = activeChatContact.roleName;
-        // UI 上锁，变更标题
-        input.disabled = true;
-        sendBtn.style.pointerEvents = 'none';
-        sendBtn.style.opacity = '0.5';
-        titleEl.textContent = '对方正在输入...';
+        const originalTitle = lockedContact.roleName;
+        
+        // UI 上锁 (只在当前界面没被切走时才改UI)
+        if (activeChatContact && activeChatContact.id === lockedContact.id) {
+            input.disabled = true;
+            sendBtn.style.pointerEvents = 'none';
+            sendBtn.style.opacity = '0.5';
+            titleEl.textContent = '对方正在输入...';
+        }
         try {
             const apiUrl = await localforage.getItem('miffy_api_url');
             const apiKey = await localforage.getItem('miffy_api_key');
@@ -1919,7 +1929,7 @@ container.appendChild(item);
             if (!apiUrl || !apiKey || !model) {
                 throw new Error("请先在设置中配置 API 网址、密钥和模型。");
             }
-            const rawMessages = await chatListDb.messages.where('contactId').equals(activeChatContact.id).toArray();
+            const rawMessages = await chatListDb.messages.where('contactId').equals(lockedContact.id).toArray();
             const recentMessages = rawMessages.slice(-ctxLimit);
             const messages = [];
             // 将每轮回复数量调整为 2 到 7 条（两条以上）
@@ -1933,7 +1943,7 @@ container.appendChild(item);
                 emoticonPrompt = `\n\n【可用表情包库】\n你可以随时使用以下表情包，使用时 type 必须为 "emoticon"，必须严格从下表中复制对应的 desc 和 url(填入content字段)：\n[${availableEmos.join(',')}]`;
             }
             // 根据角色语言设定动态调整 Prompt
-            let roleLang = activeChatContact.roleLanguage || '中';
+            let roleLang = lockedContact.roleLanguage || '中';
             let langName = roleLang === '中' ? '中文' : roleLang + '语';
             // --- 动态概率触发系统 ---
             // 生成随机数进行概率控制
@@ -2039,12 +2049,12 @@ ${langInstruction}
             });
             // 拼装世界书与联系人设定
             let wbSetting = "";
-            if (activeChatContact.worldbooks && activeChatContact.worldbooks.length > 0) {
-                const wbs = await db.entries.where('id').anyOf(activeChatContact.worldbooks).toArray();
+            if (lockedContact.worldbooks && lockedContact.worldbooks.length > 0) {
+                const wbs = await db.entries.where('id').anyOf(lockedContact.worldbooks).toArray();
                 wbSetting = wbs.map(wb => wb.content).join('\n');
             }
-            let roleSetting = activeChatContact.roleDetail ? `角色设定：${activeChatContact.roleDetail}` : "";
-            let userSetting = activeChatContact.userDetail ? `用户设定：${activeChatContact.userDetail}` : "";
+            let roleSetting = lockedContact.roleDetail ? `角色设定：${lockedContact.roleDetail}` : "";
+            let userSetting = lockedContact.userDetail ? `用户设定：${lockedContact.userDetail}` : "";
             if(wbSetting || roleSetting || userSetting) {
                 messages[0].content += `\n\n【背景与设定信息】\n${wbSetting}\n${roleSetting}\n${userSetting}`;
             }
@@ -2136,26 +2146,27 @@ ${langInstruction}
                 // 1. 处理撤回消息
                 if (msgObj.type === 'recall_msg') {
                     let text = msgObj.translation ? `<div class="msg-original-text">${msgObj.content}</div><div class="msg-translate-divider"></div><div class="msg-translated-text">${msgObj.translation}</div>` : msgObj.content;
-                    const tempMsgId = await appendRoleMessage(text);
+                    const tempMsgId = await appendRoleMessage(text, '', lockedContact);
                     if (tempMsgId) {
                         // 等待1.5秒后模拟真实撤回动作
                         await new Promise(res => setTimeout(res, 1500));
                         await chatListDb.messages.update(tempMsgId, { isRecalled: true });
-                        await refreshChatWindow();
-                        await updateLastChatTime();
+                        if (activeChatContact && activeChatContact.id === lockedContact.id) {
+                            await refreshChatWindow();
+                        }
+                        await updateLastChatTime(lockedContact);
                     }
                     continue;
                 }
                 // 2. 处理引用消息
                 let quoteText = '';
                 if (msgObj.type === 'reply' && msgObj.target_text) {
-                    // 倒序查找匹配的历史消息
                     for (let j = rawMessages.length - 1; j >= 0; j--) {
                         const pureText = extractMsgPureText(rawMessages[j].content);
                         if (pureText.includes(msgObj.target_text) || rawMessages[j].content.includes(msgObj.target_text)) {
                             const qMsg = rawMessages[j];
                             const myName = document.getElementById('text-wechat-me-name') ? document.getElementById('text-wechat-me-name').textContent : '我';
-                            const name = qMsg.sender === 'me' ? myName : (activeChatContact.roleName || '角色');
+                            const name = qMsg.sender === 'me' ? myName : (lockedContact.roleName || '角色');
                             quoteText = JSON.stringify({ 
                                 name: name, 
                                 time: qMsg.timeStr, 
@@ -2165,41 +2176,38 @@ ${langInstruction}
                         }
                     }
                 }
-                // 3. 处理普通/相机/语音/表情/定位/翻译消息
+                // 3. 处理其他消息
                 let finalContent = msgObj.content;
                 if (msgObj.type === 'camera') {
                     finalContent = JSON.stringify({ type: 'camera', content: msgObj.content });
                 } else if (msgObj.type === 'voice_message') {
-                    // 让角色也能发送语音，格式严格一致
                     finalContent = JSON.stringify({ type: 'voice_message', content: msgObj.translation ? msgObj.translation : msgObj.content });
                 } else if (msgObj.type === 'emoticon') {
-                    // 角色发送表情包，严格校验是否在库中存在，防止乱发网络图片
                     const isValid = allEmoticons.some(e => e.url === msgObj.content);
-                    if (!isValid) {
-                        console.warn("拦截到角色乱发不存在的表情包:", msgObj.content);
-                        continue; // 不在表情包库中，直接跳过不发这条消息
-                    }
+                    if (!isValid) continue; 
                     finalContent = JSON.stringify({ type: 'emoticon', desc: msgObj.desc || '表情', content: msgObj.content });
                 } else if (msgObj.type === 'location') {
-                    // 角色发送定位
                     finalContent = JSON.stringify({ type: 'location', address: msgObj.address || '未知位置', distance: msgObj.distance || '' });
                 } else if (['red_packet', 'transfer', 'takeaway', 'gift', 'call', 'video_call'].includes(msgObj.type)) {
-                    // 注解：这里处理尚未实装的类型，暂时转为JSON字符串存入，待完善UI时直接加入处理卡片
                     finalContent = JSON.stringify(msgObj);
                 } else if (msgObj.translation) {
                     finalContent = `<div class="msg-original-text">${msgObj.content}</div><div class="msg-translate-divider"></div><div class="msg-translated-text">${msgObj.translation}</div>`;
                 }
-                await appendRoleMessage(finalContent, quoteText);
+                await appendRoleMessage(finalContent, quoteText, lockedContact);
             }
         } catch (error) {
             console.error("触发回复出错:", error);
-            alert(error.message);
+            if (activeChatContact && activeChatContact.id === lockedContact.id) {
+                alert(error.message);
+            }
         } finally {
             isReplying = false;
-            input.disabled = false;
-            sendBtn.style.pointerEvents = 'auto';
-            sendBtn.style.opacity = '1';
-            titleEl.textContent = originalTitle;
+            if (activeChatContact && activeChatContact.id === lockedContact.id) {
+                input.disabled = false;
+                sendBtn.style.pointerEvents = 'auto';
+                sendBtn.style.opacity = '1';
+                titleEl.textContent = originalTitle;
+            }
         }
     }
     async function performSendMessage() {
@@ -2394,9 +2402,11 @@ ${langInstruction}
         bindMsgEvents();
         container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
     }
-    async function updateLastChatTime() {
-        const msgs = await chatListDb.messages.where('contactId').equals(activeChatContact.id).toArray();
-        const chat = await chatListDb.chats.where('contactId').equals(activeChatContact.id).first();
+    async function updateLastChatTime(targetContact = null) {
+        const contact = targetContact || activeChatContact;
+        if (!contact) return;
+        const msgs = await chatListDb.messages.where('contactId').equals(contact.id).toArray();
+        const chat = await chatListDb.chats.where('contactId').equals(contact.id).first();
         if (chat) {
             if (msgs.length > 0) {
                 const lastMsg = msgs[msgs.length - 1];
@@ -2562,12 +2572,11 @@ ${langInstruction}
             container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
             bindMsgEvents();
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-            // 发送语音后触发角色回复
-            await triggerRoleReply();
         } catch (e) {
             console.error("保存语音消息失败", e);
         }
     }
+
     // ====== 定位功能逻辑 ======
     function openLocationModal() {
         hideChatExtPanel();
@@ -2614,12 +2623,11 @@ ${langInstruction}
             container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
             bindMsgEvents();
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-            // 发送定位后触发角色回复
-            await triggerRoleReply();
         } catch (e) {
             console.error("保存定位消息失败", e);
         }
     }
+
     // 控制语音展开与波纹动画
     function toggleVoiceText(element) {
         const expandArea = element.querySelector('.voice-expand-area');

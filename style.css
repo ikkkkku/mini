@@ -965,8 +965,8 @@
     flex: 1; 
     overflow-y: auto; 
     display: grid; 
-    grid-template-columns: repeat(5, 1fr);
-    gap: 10px; 
+    grid-template-columns: repeat(4, 1fr); /* 修改：改为4列，给描述文字留足空间 */
+    gap: 12px; 
     padding-top: 10px; 
     padding-bottom: 20px;
     align-content: start; 
@@ -975,10 +975,12 @@
 
 .chat-emoji-grid::-webkit-scrollbar { display: none; }
 .chat-emoji-item {
-    width: 100%; aspect-ratio: 1; cursor: pointer; border-radius: 8px; overflow: hidden; background: #fafafa; display: flex; align-items: center; justify-content: center;
+    width: 100%; cursor: pointer; border-radius: 8px; overflow: hidden; background: #fafafa; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 6px 4px; gap: 4px; box-sizing: border-box;
 }
 .chat-emoji-item:active { transform: scale(0.9); }
-.chat-emoji-item img { width: 100%; height: 100%; object-fit: contain; }
+.chat-emoji-item img { width: 100%; aspect-ratio: 1; object-fit: contain; }
+.chat-emoji-item span { font-size: 10px; color: #666; width: 100%; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+
 .chat-emoji-empty { grid-column: 1 / -1; text-align: center; color: #bbb; font-size: 12px; margin-top: 20px; }
 /* ====== 消息通知横幅样式 ====== */
 .notification-banner {

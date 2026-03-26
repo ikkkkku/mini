@@ -1228,16 +1228,13 @@ document.getElementById('contact-edit-id').value = '';
             // 倒序显示，新的排在前面
             emos.reverse().forEach(e => {
                 const item = document.createElement('div');
-                item.className = 'emoticon-item';
-                item.innerHTML = `
-                    <div class="emoticon-del-badge" onclick="deleteEmoticon(${e.id})">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </div>
-                    <img class="emoticon-img" src="${e.url}">
-                    <div class="emoticon-desc">${e.desc}</div>
-                `;
+                item.className = 'chat-emoji-item';
+                // 修改：在图片下方追加 span 标签用于显示表情包描述
+                item.innerHTML = `<img src="${e.url}" alt="${e.desc}"><span>${e.desc}</span>`;
+                item.onclick = () => sendChatEmojiMessage(e.url, e.desc);
                 grid.appendChild(item);
             });
+
         } catch (e) { console.error(e); }
     }
     async function deleteEmoticon(id) {
@@ -1715,9 +1712,12 @@ container.appendChild(item);
             messages.forEach(msg => {
                 container.insertAdjacentHTML('beforeend', generateMsgHtml(msg, myAvatar, roleAvatar));
             });
-            bindMsgEvents(); // 绑定长按事件
-            container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
+            bindMsgEvents();
+
+            setTimeout(() => { container.scrollTop = container.scrollHeight; }, 10);
+            setTimeout(() => { container.scrollTop = container.scrollHeight; }, 320);
         } catch (e) {
+
             console.error("加载历史消息失败", e);
         }
         const input = document.getElementById('chat-input-main');
@@ -2419,8 +2419,9 @@ ${langInstruction}
             container.insertAdjacentHTML('beforeend', generateMsgHtml(msg, myAvatar, roleAvatar));
         });
         bindMsgEvents();
-        container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
+        setTimeout(() => { container.scrollTop = container.scrollHeight; }, 10);
     }
+
     async function updateLastChatTime(targetContact = null) {
         const contact = targetContact || activeChatContact;
         if (!contact) return;
@@ -3012,4 +3013,4 @@ ${langInstruction}
                 }
             }
         }
-                    }
+                                  }

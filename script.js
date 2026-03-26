@@ -1950,6 +1950,10 @@ container.appendChild(item);
             const randSpecial = Math.random(); 
             const randVoice = Math.random();
             const randEmoticon = Math.random();
+            // 新增：生成引用和撤回的随机数
+            const randReply = Math.random();
+            const randRecall = Math.random();
+
             // 0.10% 概率触发其一 (相片, 定位, 红包, 转账, 外卖, 礼物, 电话, 视频)
             const triggerCamera = randSpecial < 0.001;
             const triggerLocation = randSpecial >= 0.001 && randSpecial < 0.002;
@@ -1959,21 +1963,36 @@ container.appendChild(item);
             const triggerGift = randSpecial >= 0.005 && randSpecial < 0.006;
             const triggerCall = randSpecial >= 0.006 && randSpecial < 0.007;
             const triggerVideoCall = randSpecial >= 0.007 && randSpecial < 0.008;
+            
             // 15% 概率触发语音和表情包
             const triggerVoice = randVoice < 0.15;
             const triggerEmoticon = (randEmoticon < 0.15) && (allEmoticons.length > 0);
-            // 基础支持类型
-            let allowedTypes = ["text", "reply", "recall_msg"];
+
+            // 修改：15%概率触发引用机制，5%概率触发撤回机制
+            const triggerReply = randReply < 0.15;
+            const triggerRecall = randRecall < 0.05;
+
+            // 基础支持类型（去除默认的 reply 和 recall_msg，仅保留最基础的 text）
+            let allowedTypes = ["text"];
             let typeInstructions = [
-                `{"type": "text", "content": "普通文本消息"}`,
-                `{"type": "reply", "target_text": "你要回复的那条消息的【原文内容】", "content": "对该片段的回复"}`,
-                `{"type": "recall_msg", "content": "我...其实喜欢你 (这句会立刻撤回)"}`
+                `{"type": "text", "content": "普通文本消息"}`
             ];
-            let specialFeatures = [
-                `1. 当你想针对某句话进行回复时，使用 "type": "reply"，并在 "target_text" 摘录原文片段。`,
-                `2. 当你想模拟说错话、暴露真实心理活动时，使用 "type": "recall_msg"，该消息发送后会被瞬间撤回，增加真实感。`
-            ];
-            let featureIndex = 3;
+            let specialFeatures = [];
+            let featureIndex = 1;
+
+            // 动态推入引用指令（只有命中概率时，大模型才知道可以使用引用）
+            if (triggerReply) {
+                allowedTypes.push("reply");
+                typeInstructions.push(`{"type": "reply", "target_text": "你要回复的那条消息的【原文内容】", "content": "对该片段的回复"}`);
+                specialFeatures.push(`${featureIndex++}. 当你想针对某句话进行回复时，使用 "type": "reply"，并在 "target_text" 摘录原文片段。`);
+            }
+            
+            // 动态推入撤回指令（只有命中概率时，大模型才知道可以使用撤回）
+            if (triggerRecall) {
+                allowedTypes.push("recall_msg");
+                typeInstructions.push(`{"type": "recall_msg", "content": "我...其实喜欢你 (这句会立刻撤回)"}`);
+                specialFeatures.push(`${featureIndex++}. 当你想模拟说错话、暴露真实心理活动时，使用 "type": "recall_msg"，该消息发送后会被瞬间撤回，增加真实感。`);
+            }
             if (triggerCamera) {
                 allowedTypes.push("camera");
                 typeInstructions.push(`{"type": "camera", "content": "此处填写对画面内容的详细视觉描述"}`);
@@ -2993,4 +3012,4 @@ ${langInstruction}
                 }
             }
         }
-                }
+                    }

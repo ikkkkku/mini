@@ -936,15 +936,15 @@
     border: 1px solid #f0f0f0;
     padding: 15px;
     z-index: 125;
-    height: 320px; 
-    display: flex;
-    flex-direction: column;
+    /* 固定总高度 */
+    height: 320px;
+    /* 不用flex，改用block，子元素各自管理自己的高度 */
+    display: block;
     visibility: hidden;
     opacity: 0;
     transform: translateY(20px) scale(0.95);
     transform-origin: bottom center;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    /* 修复：千万不能加 touch-action: none，否则手机上全盘锁死无法滑动 */
     overflow: hidden;
 }
 .chat-emoji-panel.show {
@@ -952,48 +952,95 @@
     opacity: 1;
     transform: translateY(0) scale(1);
 }
+
+/* 顶部分组标签栏：固定高度 */
 .chat-emoji-groups {
-    display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; border-bottom: 1px solid #eee; flex-shrink: 0;
-    -webkit-overflow-scrolling: touch; /* 恢复原生流畅滚动 */
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    /* 固定高度，不参与flex分配 */
+    height: 42px;
+    align-items: center;
+    flex-shrink: 0;
 }
 .chat-emoji-groups::-webkit-scrollbar { display: none; }
-.chat-emoji-group-tab {
-    padding: 4px 12px; font-size: 12px; color: #666; background: #f5f5f5; border-radius: 14px; cursor: pointer; white-space: nowrap; transition: all 0.2s; 
-    flex-shrink: 0; /* 修复：防止标签过多时被挤压变形 */
-}
-.chat-emoji-group-tab.active { background: #fff; color: #333; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
+.chat-emoji-group-tab {
+    padding: 4px 12px;
+    font-size: 12px;
+    color: #666;
+    background: #f5f5f5;
+    border-radius: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+.chat-emoji-group-tab.active {
+    background: #fff;
+    color: #333;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* 表情网格：用 calc 精确计算剩余高度 */
+/* 320px总高 - 15px上padding - 15px下padding - 42px标签栏 = 248px */
 .chat-emoji-grid {
-    flex: 1;
-    min-height: 0; /* 修复：将 height: 0 改为 min-height: 0，确保 flex 容器内正确生成滚动条而不是撑破容器 */
-    overflow-y: auto; 
-    -webkit-overflow-scrolling: touch; 
-    display: grid; 
-    grid-template-columns: repeat(4, 1fr); 
-    gap: 15px 10px; 
-    padding-top: 10px; 
-    padding-bottom: 30px; 
-    align-content: start; 
+    height: 248px;
+    overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px 10px;
+    padding-top: 12px;
+    padding-bottom: 20px;
+    align-content: start;
+    /* 关键：让滚动在这个元素上生效 */
+    overscroll-behavior: contain;
 }
 .chat-emoji-grid::-webkit-scrollbar { display: none; }
+
 .chat-emoji-item {
-    width: 100%; cursor: pointer; border-radius: 8px; overflow: hidden; background: #fafafa; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 6px 4px; gap: 4px; box-sizing: border-box;
+    width: 100%;
+    cursor: pointer;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fafafa;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 6px 4px;
+    gap: 4px;
+    box-sizing: border-box;
 }
 .chat-emoji-item:active { transform: scale(0.9); }
-.chat-emoji-item img { width: 100%; height: 55px; object-fit: contain; }
-
-.chat-emoji-item span { 
-    font-size: 10px; 
-    color: #666; 
-    width: 100%; 
-    text-align: center; 
-    white-space: nowrap; 
-    overflow: hidden; 
-    text-overflow: ellipsis; 
+.chat-emoji-item img {
+    width: 100%;
+    height: 55px;
+    object-fit: contain;
+}
+.chat-emoji-item span {
+    font-size: 10px;
+    color: #666;
+    width: 100%;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     line-height: 1.3;
     padding-bottom: 2px;
 }
-.chat-emoji-empty { grid-column: 1 / -1; text-align: center; color: #bbb; font-size: 12px; margin-top: 20px; }
+.chat-emoji-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #bbb;
+    font-size: 12px;
+    margin-top: 20px;
+}
 
 /* ====== 消息通知横幅样式 ====== */
 .notification-banner {

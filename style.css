@@ -944,7 +944,7 @@
     transform: translateY(20px) scale(0.95);
     transform-origin: bottom center;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    touch-action: none;
+    /* 修复：千万不能加 touch-action: none，否则手机上全盘锁死无法滑动 */
     overflow: hidden;
 }
 .chat-emoji-panel.show {
@@ -954,19 +954,18 @@
 }
 .chat-emoji-groups {
     display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; border-bottom: 1px solid #eee; flex-shrink: 0;
-    touch-action: pan-x;
-    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch; /* 恢复原生流畅滚动 */
 }
-
 .chat-emoji-groups::-webkit-scrollbar { display: none; }
 .chat-emoji-group-tab {
-    padding: 4px 12px; font-size: 12px; color: #666; background: #f5f5f5; border-radius: 14px; cursor: pointer; white-space: nowrap; transition: all 0.2s;
+    padding: 4px 12px; font-size: 12px; color: #666; background: #f5f5f5; border-radius: 14px; cursor: pointer; white-space: nowrap; transition: all 0.2s; 
+    flex-shrink: 0; /* 修复：防止标签过多时被挤压变形 */
 }
 .chat-emoji-group-tab.active { background: #fff; color: #333; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
 .chat-emoji-grid {
     flex: 1;
-    height: 0;
+    min-height: 0; /* 修复：将 height: 0 改为 min-height: 0，确保 flex 容器内正确生成滚动条而不是撑破容器 */
     overflow-y: auto; 
     -webkit-overflow-scrolling: touch; 
     display: grid; 
@@ -975,10 +974,7 @@
     padding-top: 10px; 
     padding-bottom: 30px; 
     align-content: start; 
-    touch-action: pan-y; 
-    overscroll-behavior: contain; 
 }
-
 .chat-emoji-grid::-webkit-scrollbar { display: none; }
 .chat-emoji-item {
     width: 100%; cursor: pointer; border-radius: 8px; overflow: hidden; background: #fafafa; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 6px 4px; gap: 4px; box-sizing: border-box;
@@ -998,6 +994,7 @@
     padding-bottom: 2px;
 }
 .chat-emoji-empty { grid-column: 1 / -1; text-align: center; color: #bbb; font-size: 12px; margin-top: 20px; }
+
 /* ====== 消息通知横幅样式 ====== */
 .notification-banner {
     position: absolute;

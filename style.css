@@ -529,8 +529,8 @@
     z-index: 125;
     height: 190px; 
     overflow-y: auto;
-    visibility: hidden;
-    opacity: 0;
+    visibility: hidden; /* ← 就是这两行之前被你不小心删了，必须有！ */
+    opacity: 0;         /* ← 就是这两行之前被你不小心删了，必须有！ */
     transform: translateY(20px) scale(0.95);
     transform-origin: bottom center;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -962,25 +962,24 @@
 .chat-emoji-group-tab.active { background: #fff; color: #333; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 .chat-emoji-grid {
     flex: 1;
-    min-height: 0;
-    height: 100%;
+    min-height: 0; /* 打破 flex 默认的 min-height: auto，防止被内部表情包撑破父容器 */
+    height: 100%;  /* 强制约束高度，使其内部滚动条（overflow-y: auto）完美生效 */
     overflow-y: auto; 
     -webkit-overflow-scrolling: touch; 
     display: grid; 
     grid-template-columns: repeat(4, 1fr); 
-    grid-auto-rows: max-content;
+    grid-auto-rows: max-content; /* 强制网格内的每一行自适应，彻底杜绝图片截断 */
     gap: 15px 10px; 
     padding-top: 10px; 
     padding-bottom: 30px; 
     align-content: start; 
     overscroll-behavior: contain; 
 }
-.chat-emoji-grid::-webkit-scrollbar { display: none; }
 .chat-emoji-item {
     width: 100%; cursor: pointer; border-radius: 8px; overflow: hidden; background: #fafafa; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 6px 4px; gap: 4px; box-sizing: border-box;
 }
 .chat-emoji-item:active { transform: scale(0.9); }
-.chat-emoji-item img { width: 100%; height: 55px; object-fit: contain; }
+.chat-emoji-item img { width: 100%; height: 55px; object-fit: contain; flex-shrink: 0; }
 
 .chat-emoji-item span { 
     font-size: 10px; 
@@ -992,6 +991,7 @@
     text-overflow: ellipsis; 
     line-height: 1.3;
     padding-bottom: 2px;
+    flex-shrink: 0; /* 核心修复3：确保描述文字不会因为高度不够而被挤压消失 */
 }
 .chat-emoji-empty { grid-column: 1 / -1; text-align: center; color: #bbb; font-size: 12px; margin-top: 20px; }
 

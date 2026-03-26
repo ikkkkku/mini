@@ -79,13 +79,16 @@ if(rw) rw.textContent = week;
             const file = fileInput.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = (e) => {
-                applyImage(currentTargetId, e.target.result);
+            // 修改：使用 async 和 compressImageBase64 修复 iOS 更换大图导致页面崩溃重置的问题
+            reader.onload = async (e) => {
+                const compressedBase64 = await compressImageBase64(e.target.result, 1080, 0.8);
+                applyImage(currentTargetId, compressedBase64);
                 fileInput.value = ''; 
             };
             reader.readAsDataURL(file);
         }
     }
+
     async function applyImage(id, src) {
         const target = document.getElementById(id);
         const img = target.querySelector('img');
@@ -1471,18 +1474,52 @@ container.appendChild(item);
     let currentLongPressMsgId = null;
     // 横幅通知控制函数
     let notifTimer = null;
-    function showNotificationBanner(avatar, name, message, timeStr) {
+    // 修改：新增 contactId 参数用于点击跳转
+    function showNotificationBanner(avatar, name, message, timeStr, contactId) {
         const banner = document.getElementById('notification-banner');
         document.getElementById('notif-avatar-img').src = avatar;
         document.getElementById('notif-name-text').textContent = name;
         document.getElementById('notif-msg-text').textContent = message;
         document.getElementById('notif-time-text').textContent = timeStr;
+        // 新增：保存 contactId 到属性中
+        if (contactId) banner.setAttribute('data-contact-id', contactId);
+        
         banner.classList.add('show');
         if (notifTimer) clearTimeout(notifTimer);
         notifTimer = setTimeout(() => {
             banner.classList.remove('show');
-        }, 4000); // 4秒后自动收起
+        }, 2000); // 2秒后自动收起
     }
+
+    // 新增：横幅点击与向上滑动关闭事件监听
+    document.addEventListener('DOMContentLoaded', () => {
+        const banner = document.getElementById('notification-banner');
+        let bannerStartY = 0;
+        
+        // 点击横幅进入聊天
+        banner.addEventListener('click', () => {
+            const contactId = banner.getAttribute('data-contact-id');
+            if (contactId) {
+                document.getElementById('wechat-app').style.display = 'flex';
+                enterChatWindow(contactId);
+                banner.classList.remove('show');
+                if (notifTimer) clearTimeout(notifTimer);
+            }
+        });
+
+        // 向上滑动关闭
+        banner.addEventListener('touchstart', (e) => {
+            bannerStartY = e.touches[0].clientY;
+        }, {passive: true});
+
+        banner.addEventListener('touchmove', (e) => {
+            const currentY = e.touches[0].clientY;
+            if (bannerStartY - currentY > 15) { // 向上滑动超过 15px 立即关闭
+                banner.classList.remove('show');
+                if (notifTimer) clearTimeout(notifTimer);
+            }
+        }, {passive: true});
+    });
     let currentLongPressMsgSender = null;
     let currentQuoteMsgId = null;
     let multiSelectMode = false;
@@ -1851,7 +1888,8 @@ container.appendChild(item);
             } else {
                 // 如果不在聊天页面，弹出横幅通知
                 const pureContent = extractMsgPureText(content);
-                showNotificationBanner(roleAvatar, activeChatContact.roleName || '角色', pureContent, timeStr);
+                // 修改：补充第五个参数 activeChatContact.id 
+                showNotificationBanner(roleAvatar, activeChatContact.roleName || '角色', pureContent, timeStr, activeChatContact.id);
             }
             return newMsgId;
         } catch (e) {
@@ -2947,4 +2985,4 @@ ${langInstruction}
                 }
             }
         }
-    }
+                }

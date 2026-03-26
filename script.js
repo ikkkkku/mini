@@ -1816,10 +1816,11 @@ container.appendChild(item);
             emos.reverse().forEach(e => {
                 const item = document.createElement('div');
                 item.className = 'chat-emoji-item';
-                item.innerHTML = `<img src="${e.url}" alt="${e.desc}">`;
+                item.innerHTML = `<img src="${e.url}" alt="${e.desc}" loading="lazy" decoding="async"><span>${e.desc}</span>`;
                 item.onclick = () => sendChatEmojiMessage(e.url, e.desc);
                 grid.appendChild(item);
             });
+
         } catch(e) { console.error("加载表情失败", e); }
     }
     async function sendChatEmojiMessage(url, desc) {
@@ -3013,4 +3014,4 @@ ${langInstruction}
                 }
             }
         }
-                                  }
+    }

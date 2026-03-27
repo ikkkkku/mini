@@ -1069,8 +1069,8 @@
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
             </div>
             <div class="app-title" id="chat-current-name">角色姓名</div>
-            <div class="app-header-action">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            <div class="app-header-action" onclick="openRoleProfile()">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="12" cy="19" r="1.5"></circle></svg>
             </div>
         </div>
         <!-- 收起面板的逻辑 -->
@@ -1284,57 +1284,36 @@
     <!-- ====== 红包发送弹窗 ====== -->
     <div id="red-packet-modal" onclick="if(event.target===this)closeRedPacketModal()" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:300; backdrop-filter:blur(6px); justify-content:center; align-items:flex-end;">
         <div id="red-packet-sheet" style="width:100%; background:#fff; border-radius:24px 24px 0 0; padding:0 0 env(safe-area-inset-bottom,20px); transform:translateY(100%); transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);">
-            <!-- 顶部标题栏 -->
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:20px 22px 14px;">
-                <div style="font-size:17px; font-weight:700; color:#c0392b;">发红包</div>
-                <div onclick="closeRedPacketModal()" style="color:#bbb; font-size:24px; cursor:pointer; line-height:1; font-weight:300;">×</div>
+            <!-- 顶部装饰区 -->
+            <div style="background:linear-gradient(135deg,#e8534a,#c0392b); border-radius:24px 24px 0 0; padding:22px 22px 18px; position:relative; overflow:hidden;">
+                <div style="position:absolute;right:-20px;top:-20px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,0.08);pointer-events:none;"></div>
+                <div style="position:absolute;left:-10px;bottom:-25px;width:70px;height:70px;border-radius:50%;background:rgba(255,255,255,0.06);pointer-events:none;"></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;position:relative;z-index:1;">
+                    <div>
+                        <div style="font-size:18px;font-weight:800;color:#fff;letter-spacing:0.5px;">发红包</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:3px;letter-spacing:0.3px;">送出你的祝福</div>
+                    </div>
+                    <div onclick="closeRedPacketModal()" style="width:30px;height:30px;background:rgba(255,255,255,0.18);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid rgba(255,255,255,0.25);">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </div>
+                </div>
             </div>
-            <div style="height:1px; background:#f5f5f5; margin:0 22px;"></div>
-            <div style="padding:18px 22px 24px; display:flex; flex-direction:column; gap:16px;">
+            <div style="padding:18px 22px 24px; display:flex; flex-direction:column; gap:14px;">
                 <!-- 金额输入 -->
                 <div>
-                    <div style="font-size:12px; color:#999; margin-bottom:8px; font-weight:500;">红包金额（元）</div>
-                    <div style="display:flex; align-items:center; background:#fafafa; border:1.5px solid #eee; border-radius:16px; padding:0 16px; height:54px;">
-                        <span style="font-size:20px; color:#c0392b; font-weight:700; margin-right:6px;">¥</span>
-                        <input type="number" id="red-packet-amount-input" class="settings-input" placeholder="0.00" inputmode="decimal" style="border:none; background:transparent; font-size:24px; font-weight:700; color:#c0392b; padding:0; box-shadow:none; flex:1;">
+                    <div style="font-size:11px; color:#aaa; margin-bottom:8px; font-weight:500; letter-spacing:0.5px;">红包金额（元）</div>
+                    <div style="display:flex; align-items:center; background:#fafafa; border:1.5px solid #f0f0f0; border-radius:16px; padding:0 16px; height:54px; transition:border-color 0.2s;" onfocus="this.style.borderColor='#e8534a'" onblur="this.style.borderColor='#f0f0f0'">
+                        <span style="font-size:20px; color:#e8534a; font-weight:700; margin-right:6px;">¥</span>
+                        <input type="number" id="red-packet-amount-input" class="settings-input" placeholder="0.00" inputmode="decimal" style="border:none; background:transparent; font-size:24px; font-weight:800; color:#333; padding:0; box-shadow:none; flex:1;">
                     </div>
                 </div>
-                <!-- 说明输入 -->
+                <!-- 祝福语输入 -->
                 <div>
-                    <div style="font-size:12px; color:#999; margin-bottom:8px; font-weight:500;">祝福语（可不填）</div>
-                    <input type="text" id="red-packet-desc-input" class="settings-input" placeholder="恭喜发财，大吉大利" style="border-radius:14px;">
-                </div>
-                <!-- 支付方式选择 -->
-                <div>
-                    <div style="font-size:12px; color:#999; margin-bottom:8px; font-weight:500;">支付方式</div>
-                    <div style="display:flex; flex-direction:column; gap:8px; background:#fafafa; border-radius:16px; padding:4px 0; border:1px solid #eee;">
-                        <label style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; cursor:pointer;">
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                                <span style="font-size:14px; color:#333; font-weight:500;">余额</span>
-                            </div>
-                            <input type="radio" name="rp-pay-method" value="balance" checked style="accent-color:#c0392b; width:16px; height:16px;">
-                        </label>
-                        <div style="height:1px; background:#f0f0f0; margin:0 16px;"></div>
-                        <label style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; cursor:pointer;">
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/><line x1="5" y1="15" x2="9" y2="15"/></svg>
-                                <span style="font-size:14px; color:#333; font-weight:500;">银行卡</span>
-                            </div>
-                            <input type="radio" name="rp-pay-method" value="bankcard" style="accent-color:#c0392b; width:16px; height:16px;">
-                        </label>
-                        <div style="height:1px; background:#f0f0f0; margin:0 16px;"></div>
-                        <label style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; cursor:pointer;">
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                <span style="font-size:14px; color:#bbb; font-weight:500;">亲属卡（未开放）</span>
-                            </div>
-                            <input type="radio" name="rp-pay-method" value="family" disabled style="accent-color:#c0392b; width:16px; height:16px;">
-                        </label>
-                    </div>
+                    <div style="font-size:11px; color:#aaa; margin-bottom:8px; font-weight:500; letter-spacing:0.5px;">祝福语（可不填）</div>
+                    <input type="text" id="red-packet-desc-input" class="settings-input" placeholder="恭喜发财，大吉大利" style="border-radius:14px; border-color:#f0f0f0;">
                 </div>
                 <!-- 发送按钮 -->
-                <div onclick="submitRedPacket()" style="width:100%; height:52px; background:linear-gradient(135deg,#e74c3c,#c0392b); border-radius:18px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 8px 20px rgba(192,57,43,0.28); transition:opacity 0.2s;" onmousedown="this.style.opacity='0.85'" onmouseup="this.style.opacity='1'">
+                <div onclick="submitRedPacket()" style="width:100%; height:52px; background:linear-gradient(135deg,#e8534a,#c0392b); border-radius:18px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 8px 24px rgba(192,57,43,0.32); transition:opacity 0.2s; margin-top:4px;" onmousedown="this.style.opacity='0.85'" onmouseup="this.style.opacity='1'">
                     确认发送
                 </div>
             </div>
@@ -1639,6 +1618,62 @@
                 <div onclick="confirmWithdraw()" style="width:100%; height:52px; background:linear-gradient(135deg,#27ae60,#1e8449); border-radius:18px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 8px 20px rgba(39,174,96,0.28); transition:opacity 0.2s;" onmousedown="this.style.opacity='0.85'" onmouseup="this.style.opacity='1'">
                     确认提现
                 </div>
+            </div>
+        </div>
+    </div>
+    <!-- ====== 角色主页页面 ====== -->
+    <div id="role-profile-app" class="full-app-page" style="background: #f4f5f7; z-index: 130;">
+        <div class="app-header" style="background: rgba(255,255,255,0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);">
+            <div class="app-back" onclick="closeRoleProfile()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <div class="app-title" id="role-profile-title">角色主页</div>
+            <div style="width:36px;"></div>
+        </div>
+        <div class="app-body" style="padding: 0; align-items: stretch; overflow-y: auto;">
+            <!-- 上方：角色信息卡 -->
+            <div class="role-profile-hero">
+                <!-- 背景装饰层 -->
+                <div class="role-profile-bg-deco"></div>
+                <!-- 头像 -->
+                <div class="role-profile-avatar-wrap">
+                    <div class="role-profile-avatar" id="role-profile-avatar-img">
+                        <img src="" alt="">
+                    </div>
+                    <!-- 在线状态圆点 -->
+                    <div class="role-profile-online-dot" id="role-profile-online-dot"></div>
+                </div>
+                <!-- 姓名 -->
+                <div class="role-profile-name" id="role-profile-name-text"></div>
+                <!-- 在线状态文字 -->
+                <div class="role-profile-status-text" id="role-profile-status-text">在线</div>
+                <!-- 个性签名 -->
+                <div class="role-profile-signature" id="role-profile-signature-text"></div>
+            </div>
+            <!-- 朋友圈入口卡片 -->
+            <div class="role-profile-moments-card" onclick="openRoleProfileMoments()">
+                <div class="role-profile-moments-left">
+                    <div class="role-profile-moments-icon">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                    </div>
+                    <span class="role-profile-moments-label">朋友圈</span>
+                </div>
+                <div class="role-profile-moments-right">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                </div>
+            </div>
+            <!-- 间距 -->
+            <div style="height: 12px;"></div>
+        </div>
+        <!-- 底部操作按钮 -->
+        <div class="role-profile-action-bar">
+            <div class="role-profile-action-btn role-profile-call-btn">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                <span>通话</span>
+            </div>
+            <div class="role-profile-action-btn role-profile-chat-btn" onclick="closeRoleProfileAndChat()">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12c0 5.523-4.477 10-10 10-1.886 0-3.65-.52-5.15-1.414L2 22l1.414-4.85C2.52 15.65 2 13.886 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10z"></path></svg>
+                <span>聊天</span>
             </div>
         </div>
     </div>

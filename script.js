@@ -779,6 +779,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         tempDiv.innerHTML = cardHtml;
         list.appendChild(tempDiv.firstChild);
 
+        // 记录账单
+        _addBill('bank_card', '添加银行卡', balanceNum, false, name + ' · ' + type);
+
         closeAddBankCardModal();
     }
 
@@ -2186,6 +2189,54 @@ document.getElementById('contact-edit-id').value = '';
             console.error("发送表情消息失败", err);
         }
     }
+    // ====== 角色主页逻辑 ======
+    function openRoleProfile() {
+        if (!activeChatContact) return;
+        const profileApp = document.getElementById('role-profile-app');
+        const avatarImg = document.querySelector('#role-profile-avatar-img img');
+        const nameEl = document.getElementById('role-profile-name-text');
+        const statusEl = document.getElementById('role-profile-status-text');
+        const sigEl = document.getElementById('role-profile-signature-text');
+        const titleEl = document.getElementById('role-profile-title');
+
+        // 填充头像
+        if (avatarImg) {
+            avatarImg.src = activeChatContact.roleAvatar || 'https://via.placeholder.com/100';
+        }
+        // 填充姓名
+        if (nameEl) nameEl.textContent = activeChatContact.roleName || '角色';
+        if (titleEl) titleEl.textContent = activeChatContact.roleName || '角色主页';
+        // 在线状态（固定显示在线）
+        if (statusEl) statusEl.textContent = '在线';
+        // 个性签名：取角色详细设定的前40字作为签名
+        if (sigEl) {
+            const detail = activeChatContact.roleDetail || '';
+            sigEl.textContent = detail.length > 0 ? (detail.length > 40 ? detail.substring(0, 40) + '...' : detail) : '暂无个性签名';
+        }
+
+        profileApp.style.display = 'flex';
+    }
+
+    function closeRoleProfile() {
+        document.getElementById('role-profile-app').style.display = 'none';
+    }
+
+    function closeRoleProfileAndChat() {
+        closeRoleProfile();
+        // 确保聊天窗口已打开（它应该已经在背景中）
+        const chatWin = document.getElementById('chat-window');
+        if (chatWin.style.display !== 'flex') {
+            chatWin.style.display = 'flex';
+        }
+    }
+
+    function openRoleProfileMoments() {
+        closeRoleProfile();
+        // 打开 WeChat 朋友圈页面
+        document.getElementById('wechat-app').style.display = 'flex';
+        switchWechatTab('moments');
+    }
+
     function closeChatWindow() {
         document.getElementById('chat-window').style.display = 'none';
         hideChatExtPanel();
@@ -2538,7 +2589,23 @@ ${langInstruction}
                     finalContent = JSON.stringify({ type: 'emoticon', desc: msgObj.desc || '表情', content: msgObj.content });
                 } else if (msgObj.type === 'location') {
                     finalContent = JSON.stringify({ type: 'location', address: msgObj.address || '未知位置', distance: msgObj.distance || '' });
-                } else if (['red_packet', 'transfer', 'takeaway', 'gift', 'call', 'video_call'].includes(msgObj.type)) {
+                } else if (msgObj.type === 'red_packet') {
+                    // 角色发红包：构造完整的红包结构，status 固定为 unclaimed
+                    finalContent = JSON.stringify({
+                        type: 'red_packet',
+                        amount: String(msgObj.amount || msgObj.content || '0.00'),
+                        desc: msgObj.desc || '恭喜发财，大吉大利',
+                        status: 'unclaimed'
+                    });
+                } else if (msgObj.type === 'transfer') {
+                    // 角色发转账：构造完整的转账结构，status 固定为 pending
+                    finalContent = JSON.stringify({
+                        type: 'transfer',
+                        amount: String(msgObj.amount || msgObj.content || '0.00'),
+                        desc: msgObj.desc || '转账',
+                        status: 'pending'
+                    });
+                } else if (['takeaway', 'gift', 'call', 'video_call'].includes(msgObj.type)) {
                     finalContent = JSON.stringify(msgObj);
                 } else if (msgObj.translation) {
                     finalContent = `<div class="msg-original-text">${msgObj.content}</div><div class="msg-translate-divider"></div><div class="msg-translated-text">${msgObj.translation}</div>`;
@@ -3370,7 +3437,10 @@ ${langInstruction}
         { id: 0, name: '腾讯控股', code: '00700.HK', price: 328.60, open: 328.60, held: 0, avgCost: 0, color: '#1a6fb5' },
         { id: 1, name: '贵州茅台', code: '600519.SH', price: 1688.00, open: 1688.00, held: 0, avgCost: 0, color: '#e74c3c' },
         { id: 2, name: '宁德时代', code: '300750.SZ', price: 198.50, open: 198.50, held: 0, avgCost: 0, color: '#27ae60' },
-        { id: 3, name: '比亚迪', code: '002594.SZ', price: 285.30, open: 285.30, held: 0, avgCost: 0, color: '#8e44ad' }
+        { id: 3, name: '比亚迪', code: '002594.SZ', price: 285.30, open: 285.30, held: 0, avgCost: 0, color: '#8e44ad' },
+        { id: 4, name: '阿里巴巴', code: '09988.HK', price: 85.40, open: 85.40, held: 0, avgCost: 0, color: '#e67e22' },
+        { id: 5, name: '中芯国际', code: '00981.HK', price: 22.80, open: 22.80, held: 0, avgCost: 0, color: '#16a085' },
+        { id: 6, name: '小米集团', code: '01810.HK', price: 18.96, open: 18.96, held: 0, avgCost: 0, color: '#c0392b' }
     ];
     var stockTimer = null;
     var currentTradeStockId = -1;
@@ -3526,14 +3596,17 @@ ${langInstruction}
         var s = stocks[currentTradeStockId];
         var qty = parseInt(document.getElementById('stock-trade-qty').value) || 0;
         if (qty <= 0) return;
+        var tradeTotal = (qty * s.price).toFixed(2);
         if (currentTradeMode === 'buy') {
             var totalCost = s.held * s.avgCost + qty * s.price;
             s.held += qty;
             s.avgCost = s.held > 0 ? totalCost / s.held : 0;
+            _addBill('stock', '买入 ' + s.name, parseFloat(tradeTotal), true, qty + '股 · ¥' + s.price.toFixed(2));
         } else {
             if (qty > s.held) { alert('持仓不足，最多可卖 ' + s.held + ' 股'); return; }
             s.held -= qty;
             if (s.held === 0) s.avgCost = 0;
+            _addBill('stock', '卖出 ' + s.name, parseFloat(tradeTotal), false, qty + '股 · ¥' + s.price.toFixed(2));
         }
         window.closeStockTradeModal();
         renderStockList();
@@ -3841,6 +3914,8 @@ function _doTfAction(newStatus, senderRole, roleName) {
             container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
             bindMsgEvents();
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+            // 记录账单
+            _addBill('red_packet', '发红包', parseFloat(_rpAmount), true, activeChatContact.roleName || '对方');
         } catch(e) {
             console.error('发送红包失败', e);
         }
@@ -4014,6 +4089,8 @@ function toggleTransferStatus(cardEl) {
             container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
             bindMsgEvents();
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+            // 记录账单
+            _addBill('transfer', '转账', parseFloat(_tfAmount), true, activeChatContact.roleName || '对方');
         } catch(e) {
             console.error('发送转账失败', e);
         }
@@ -4065,6 +4142,80 @@ function toggleTransferStatus(cardEl) {
         }
     };
 })();
+
+// ====== 账单系统 ======
+// 账单数据库（内存存储，页面刷新后清空，符合"近期账单"语义）
+var _billList = [];
+
+function _addBill(type, name, amount, isOut, detail) {
+    var now = new Date();
+    var h = String(now.getHours()).padStart(2,'0');
+    var m = String(now.getMinutes()).padStart(2,'0');
+    var mo = String(now.getMonth()+1).padStart(2,'0');
+    var d = String(now.getDate()).padStart(2,'0');
+    _billList.unshift({
+        type: type,       // 'recharge'|'withdraw'|'red_packet'|'transfer'|'stock'|'bank_card'|'family_card'
+        name: name,       // 显示名称
+        amount: amount,   // 数字
+        isOut: isOut,     // true=支出/扣减, false=收入/增加
+        detail: detail || '',
+        time: mo + '-' + d + ' ' + h + ':' + m
+    });
+    if (_billList.length > 50) _billList = _billList.slice(0, 50);
+    _renderBills();
+}
+
+function _renderBills() {
+    var section = document.querySelector('.wallet-bill-section');
+    if (!section) return;
+    // 找到空状态容器
+    var emptyBox = section.querySelector('div[style*="min-height"]');
+    if (_billList.length === 0) {
+        if (emptyBox) emptyBox.style.display = 'flex';
+        return;
+    }
+    if (emptyBox) emptyBox.style.display = 'none';
+    // 找或创建账单列表容器
+    var listEl = section.querySelector('#wallet-bill-list');
+    if (!listEl) {
+        listEl = document.createElement('div');
+        listEl.id = 'wallet-bill-list';
+        listEl.style.cssText = 'display:flex; flex-direction:column; gap:10px; padding-bottom:20px;';
+        section.appendChild(listEl);
+    }
+    listEl.innerHTML = '';
+    // 图标映射（SVG线条，无emoji）
+    var iconMap = {
+        recharge:    '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#667eea" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>',
+        withdraw:    '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#27ae60" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>',
+        red_packet:  '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#e8534a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="3" ry="3"></rect><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"></path></svg>',
+        transfer:    '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1a6fb5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>',
+        stock:       '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#8e44ad" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>',
+        bank_card:   '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>',
+        family_card: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>'
+    };
+    var bgMap = {
+        recharge: '#f0f0ff', withdraw: '#f0fff4', red_packet: '#fff2f2',
+        transfer: '#f0f6ff', stock: '#f8f0ff', bank_card: '#f5f5f5', family_card: '#fafafa'
+    };
+    _billList.forEach(function(bill) {
+        var icon = iconMap[bill.type] || iconMap['bank_card'];
+        var bg = bgMap[bill.type] || '#f5f5f5';
+        var amtColor = bill.isOut ? '#333' : '#27ae60';
+        var amtPrefix = bill.isOut ? '-' : '+';
+        var item = document.createElement('div');
+        item.className = 'wallet-bill-item';
+        item.innerHTML = '<div class="wallet-bill-left">' +
+            '<div class="wallet-bill-icon" style="background:' + bg + ';">' + icon + '</div>' +
+            '<div class="wallet-bill-info">' +
+                '<div class="wallet-bill-name">' + bill.name + '</div>' +
+                '<div class="wallet-bill-time">' + (bill.detail ? bill.detail + ' · ' : '') + bill.time + '</div>' +
+            '</div>' +
+        '</div>' +
+        '<div class="wallet-bill-amount" style="color:' + amtColor + ';">' + amtPrefix + '¥' + parseFloat(bill.amount).toFixed(2) + '</div>';
+        listEl.appendChild(item);
+    });
+}
 
 // ====== 充值 & 提现功能 ======
 (function() {
@@ -4272,11 +4423,15 @@ function toggleTransferStatus(cardEl) {
             alert('银行卡余额不足（当前余额 ¥' + cardBal.toFixed(2) + '）');
             return;
         }
+        var cardNameEl = card.querySelector('.sim-card-bank-name');
+        var cardName = cardNameEl ? cardNameEl.textContent : '银行卡';
         // 银行卡扣减
         _setBankCardBalance(card, cardBal - amount);
         // 钱包余额增加
         var walletBal = _getWalletBalance();
         _setWalletBalance(walletBal + amount);
+        // 记录账单
+        _addBill('recharge', '充值', amount, false, '来自 ' + cardName);
         closeRechargeModal();
         // 简单 Toast 提示
         _showSimpleToast('充值成功 ¥' + amount.toFixed(2));
@@ -4328,10 +4483,14 @@ function toggleTransferStatus(cardEl) {
         }
         var card = cards[_withdrawSelectedIndex];
         var cardBal = _getBankCardBalance(card);
+        var wdCardNameEl = card.querySelector('.sim-card-bank-name');
+        var wdCardName = wdCardNameEl ? wdCardNameEl.textContent : '银行卡';
         // 钱包余额扣减
         _setWalletBalance(walletBal - amount);
         // 银行卡余额增加
         _setBankCardBalance(card, cardBal + amount);
+        // 记录账单
+        _addBill('withdraw', '提现', amount, true, '到 ' + wdCardName);
         closeWithdrawModal();
         _showSimpleToast('提现成功 ¥' + amount.toFixed(2));
     };

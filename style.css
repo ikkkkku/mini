@@ -358,6 +358,9 @@
         /* 增加 flex-shrink: 0 防止 SVG 受到 flex 挤压变形 */
         .wechat-dock-btn svg { width: 24px; height: 24px; stroke-width: 2; transition: all 0.2s; flex-shrink: 0; }
         .wechat-dock-btn.active svg { transform: scale(1.1); stroke-width: 2.5; }
+        /* 朋友圈纯文字按钮样式 */
+        .wechat-dock-btn-text { font-size: 13px; font-weight: 500; letter-spacing: 0.5px; }
+        .wechat-dock-btn-text.active { font-weight: 700; }
         .wechat-tab-page { display: none; width: 100%; height: 100%; flex-direction: column; }
         .wechat-tab-page.active { display: flex; }
         /* 朋友圈样式 */
@@ -441,7 +444,8 @@
 .wallet-card-new { 
     background: #fff; border-radius: 28px; padding: 25px; 
     box-shadow: 0 12px 35px rgba(0,0,0,0.04), inset 0 0 0 1px rgba(255,255,255,0.8);
-    position: relative; overflow: hidden; display: flex; flex-direction: column; z-index: 1;
+    position: relative; overflow: visible; display: flex; flex-direction: column; z-index: 1;
+    flex-shrink: 0;
 }
 .wallet-top-row { display: flex; justify-content: space-between; align-items: center; color: #888; font-size: 13px; font-weight: 500; }
 .wallet-balance-box { margin-top: 15px; margin-bottom: 25px; }
@@ -1663,188 +1667,225 @@ img {
     padding: 0 !important;
 }
 
-/* ====== 角色主页页面样式 ====== */
-.role-profile-hero {
+/* 红包/转账卡片：气泡容器强制无气泡（data-no-bubble 属性兜底方案） */
+.msg-left .chat-msg-content:has([data-no-bubble="1"]),
+.msg-right .chat-msg-content:has([data-no-bubble="1"]) {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+}
+
+/* ====== 角色主页页面样式 (仿微信联系人资料页) ====== */
+#role-profile-app {
+    overflow: hidden;
+}
+.rp-back-btn {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 200;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.28);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: background 0.2s;
+}
+.rp-back-btn:active { background: rgba(0,0,0,0.45); }
+.rp-scroll-body {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 90px;
+}
+.rp-scroll-body::-webkit-scrollbar { display: none; }
+/* 封面区域 */
+.rp-cover-section {
     position: relative;
     width: 100%;
-    padding: 50px 24px 36px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    background: #fff;
-    overflow: hidden;
-    margin-bottom: 12px;
-    box-shadow: 0 2px 16px rgba(0,0,0,0.04);
-}
-.role-profile-bg-deco {
-    position: absolute;
-    top: -60px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 340px;
     height: 240px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, rgba(102,126,234,0.10) 0%, rgba(118,75,162,0.08) 100%);
-    pointer-events: none;
-    z-index: 0;
-}
-.role-profile-avatar-wrap {
-    position: relative;
-    z-index: 1;
-    margin-bottom: 4px;
-}
-.role-profile-avatar {
-    width: 90px;
-    height: 90px;
-    border-radius: 50%;
     overflow: hidden;
-    background: #eee;
-    border: 3px solid #fff;
-    box-shadow: 0 8px 28px rgba(0,0,0,0.10), 0 2px 8px rgba(102,126,234,0.10);
+    flex-shrink: 0;
+    cursor: pointer;
 }
-.role-profile-avatar img {
+.rp-cover-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    z-index: 0;
+    background-color: #667eea;
+    cursor: pointer;
+    filter: none;
+}
+.rp-cover-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.55) 100%);
+    z-index: 1;
+}
+.rp-identity-row {
+    position: absolute;
+    bottom: 22px;
+    left: 20px;
+    right: 20px;
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    z-index: 2;
+}
+.rp-avatar-ring {
+    width: 76px;
+    height: 76px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1.5px solid rgba(255,255,255,0.85);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+    flex-shrink: 0;
+    background: #ccc;
+}
+.rp-avatar-ring img {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
-.role-profile-online-dot {
-    position: absolute;
-    bottom: 4px;
-    right: 4px;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #4cd964;
-    border: 2.5px solid #fff;
-    box-shadow: 0 2px 6px rgba(76,217,100,0.4);
+.rp-identity-info {
+    flex: 1;
+    overflow: hidden;
+    padding-bottom: 2px;
 }
-.role-profile-name {
-    font-size: 20px;
+.rp-name {
+    font-size: 22px;
     font-weight: 700;
-    color: #222;
+    color: #fff;
     letter-spacing: 0.5px;
-    z-index: 1;
-    text-align: center;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.4);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.role-profile-status-text {
-    font-size: 12px;
-    color: #4cd964;
-    font-weight: 500;
-    letter-spacing: 0.5px;
-    z-index: 1;
+.rp-online-badge {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
+    margin-top: 5px;
 }
-.role-profile-status-text::before {
-    content: '';
-    display: inline-block;
-    width: 6px;
-    height: 6px;
+.rp-online-dot-small {
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     background: #4cd964;
+    box-shadow: 0 0 5px rgba(76,217,100,0.8);
+    flex-shrink: 0;
 }
-.role-profile-signature {
-    font-size: 13px;
-    color: #888;
-    text-align: center;
-    line-height: 1.5;
-    max-width: 260px;
-    z-index: 1;
-    margin-top: 2px;
-    letter-spacing: 0.3px;
-    font-style: italic;
+.rp-online-badge span {
+    font-size: 12px;
+    color: rgba(255,255,255,0.85);
+    font-weight: 500;
 }
-.role-profile-moments-card {
+.rp-signature {
+    font-size: 12px;
+    color: rgba(255,255,255,0.7);
+    margin-top: 4px;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* 菜单列表区 */
+.rp-menu-section {
+    margin: 16px 14px 0;
     background: #fff;
     border-radius: 18px;
-    margin: 0 16px;
-    padding: 16px 18px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.rp-menu-item {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.03);
-    border: 1px solid #f0f0f0;
+    gap: 14px;
+    padding: 14px 16px;
+    background: #fff;
     cursor: pointer;
-    transition: background 0.2s;
+    border-bottom: 0.5px solid #f0f0f0;
+    transition: background 0.15s;
 }
-.role-profile-moments-card:active {
-    background: #fafafa;
-}
-.role-profile-moments-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-.role-profile-moments-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%);
+.rp-menu-item:last-child { border-bottom: none; }
+.rp-menu-item:active { background: #f5f5f5; }
+.rp-menu-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #667eea;
     flex-shrink: 0;
 }
-.role-profile-moments-label {
+.rp-menu-label {
+    flex: 1;
     font-size: 15px;
-    font-weight: 500;
-    color: #333;
-    letter-spacing: 0.3px;
+    color: #1a1a1a;
+    font-weight: 400;
 }
-.role-profile-moments-right {
-    display: flex;
-    align-items: center;
+.rp-menu-arrow {
+    flex-shrink: 0;
 }
-.role-profile-action-bar {
+/* 底部操作栏 */
+.rp-action-dock {
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 80px;
-    background: rgba(255,255,255,0.96);
+    height: 76px;
+    background: rgba(255,255,255,0.97);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid #f0f0f0;
+    border-top: 0.5px solid #e5e5e5;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 16px;
-    padding: 0 24px;
+    justify-content: space-around;
+    padding: 0 20px;
     padding-bottom: env(safe-area-inset-bottom);
-    flex-shrink: 0;
     z-index: 10;
+    gap: 14px;
 }
-.role-profile-action-btn {
+.rp-action-item {
     flex: 1;
-    height: 50px;
-    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.rp-action-item:active { opacity: 0.7; }
+.rp-action-item span {
+    font-size: 12px;
+    color: #555;
+    font-weight: 500;
+}
+.rp-action-icon-wrap {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    letter-spacing: 0.5px;
+    transition: transform 0.15s;
 }
-.role-profile-action-btn:active {
-    transform: scale(0.96);
-    opacity: 0.85;
+.rp-action-icon-wrap:active { transform: scale(0.9); }
+.rp-call-wrap {
+    background: linear-gradient(135deg, #8e9eab, #6e7f8d);
+    box-shadow: 0 4px 14px rgba(110,127,141,0.35);
 }
-.role-profile-call-btn {
-    background: #f5f6f8;
-    color: #555;
-    border: 1px solid #eee;
-}
-.role-profile-chat-btn {
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: #fff;
-    box-shadow: 0 6px 18px rgba(102,126,234,0.30);
-    border: none;
+.rp-chat-wrap {
+    background: linear-gradient(135deg, #07c160, #06ad56);
+    box-shadow: 0 4px 14px rgba(7,193,96,0.40);
 }
 
 /* ====== 理财股票页面样式（精美重制版） ====== */

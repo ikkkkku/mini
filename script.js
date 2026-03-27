@@ -1,84 +1,6 @@
 ﻿const whitePixel = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 const imgDb = new Dexie("miniPhoneImagesDB");
 imgDb.version(1).stores({ images: 'id, src' });
-
-// ====== 资产钱包持久化数据库 (Dexie.js + IndexedDB) ======
-const walletDb = new Dexie("miniPhoneWalletDB");
-walletDb.version(1).stores({
-    kv: 'key',           // 键值对存储（余额等标量数据）
-    bankCards: '++id',   // 银行卡列表
-    bills: '++id'        // 账单记录
-});
-
-// 初始化钱包数据（页面加载时从 IndexedDB 恢复）
-async function initWalletData() {
-    // 恢复余额
-    try {
-        const balRecord = await walletDb.kv.get('walletBalance');
-        if (balRecord && balRecord.value !== undefined) {
-            const el = document.getElementById('text-wallet-bal');
-            if (el) el.textContent = parseFloat(balRecord.value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-    } catch(e) { console.error("恢复余额失败", e); }
-
-    // 恢复银行卡
-    try {
-        const cards = await walletDb.bankCards.toArray();
-        if (cards.length > 0) {
-            const emptyEl = document.getElementById('bank-card-empty');
-            if (emptyEl) emptyEl.style.display = 'none';
-            const list = document.getElementById('bank-card-list');
-            if (list) {
-                cards.forEach(card => {
-                    const cardEl = _buildBankCardElement(card);
-                    list.appendChild(cardEl);
-                });
-            }
-        }
-    } catch(e) { console.error("恢复银行卡失败", e); }
-
-    // 恢复账单
-    try {
-        const bills = await walletDb.bills.orderBy('id').reverse().toArray();
-        _billList = bills;
-        _renderBills();
-    } catch(e) { console.error("恢复账单失败", e); }
-}
-
-// ====== 辅助：根据存储的数据对象构建银行卡 DOM 元素 ======
-function _buildBankCardElement(cardData) {
-    var balanceStr = parseFloat(cardData.balance || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    var cardId = cardData.domId || ('bank-card-' + (cardData.id || Date.now()));
-    var dbId = cardData.id || '';
-    var color = cardData.color || 'linear-gradient(135deg,#667eea,#764ba2)';
-    var name = cardData.name || '银行卡';
-    var type = cardData.type || '储蓄卡';
-    var cardNumber = cardData.cardNumber || '**** **** **** 0000';
-    var html = '<div class="sim-bank-card" id="' + cardId + '" data-db-id="' + dbId + '" style="background:' + color + ';">' +
-        '<div class="sim-card-delete-btn" onclick="deleteBankCard(\'' + cardId + '\')">' +
-        '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
-        '</div>' +
-        '<div class="sim-card-top">' +
-        '<div class="sim-card-bank-name">' + name + '</div>' +
-        '<div class="sim-card-type-badge">' + type + '</div>' +
-        '</div>' +
-        '<div class="sim-card-chip"></div>' +
-        '<div class="sim-card-number">' + cardNumber + '</div>' +
-        '<div class="sim-card-bottom">' +
-        '<div>' +
-        '<div class="sim-card-balance-label">当前余额</div>' +
-        '<div class="sim-card-balance-amount">¥ ' + balanceStr + '</div>' +
-        '</div>' +
-        '<div class="sim-card-logo">' +
-        '<div class="sim-card-logo-circle" style="background:#eb001b;"></div>' +
-        '<div class="sim-card-logo-circle" style="background:#f79e1b; margin-left:-8px;"></div>' +
-        '</div>' +
-        '</div>' +
-        '</div>';
-    var tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-    return tempDiv.firstChild;
-}
 const appIconNames = ["小说", "日记", "购物", "论坛", "WeChat", "纪念日", "遇恋", "世界书", "占位1", "闲鱼", "查手机", "情侣空间", "占位2", "占位3", "占位4", "占位5", "主题", "设置"];
 const themeIconGrid = document.getElementById('icon-theme-grid');
 const mainIcons = document.querySelectorAll('.icon-img img, .dock-icon img');
@@ -170,22 +92,7 @@ if(rw) rw.textContent = week;
         }
     }
     async function applyImage(id, src) {
-        // 特殊处理：角色主页封面背景更换
-        if (id === 'rp-cover-bg-img') {
-            const coverBg = document.getElementById('rp-cover-bg');
-            if (coverBg) {
-                coverBg.style.backgroundImage = `url(${src})`;
-                coverBg.style.background = '';
-            }
-            try {
-                await imgDb.images.put({ id: id, src: src });
-            } catch (e) {
-                console.error("图片存入IndexedDB失败", e);
-            }
-            return;
-        }
         const target = document.getElementById(id);
-        if (!target) return;
         const img = target.querySelector('img');
         if(img) {
             img.style.content = "normal";
@@ -454,6 +361,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('temp-val').textContent = t;
         const c = await localforage.getItem(ST_CTX) || '10';
         document.getElementById('api-ctx').value = c;
+        document.getElementById('ctx-val').textContent = c;
     }
     async function saveSettings() {
         await localforage.setItem(ST_URL, document.getElementById('api-url').value);
@@ -569,6 +477,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('api-temp').value = p.temp || '0.7';
             document.getElementById('temp-val').textContent = p.temp || '0.7';
             document.getElementById('api-ctx').value = p.ctx || '10';
+            document.getElementById('ctx-val').textContent = p.ctx || '10';
             closePresetManager();
             alert(`已应用预设: ${p.name}`);
         }
@@ -821,8 +730,8 @@ window.addEventListener('DOMContentLoaded', async () => {
         return groups.join(' ');
     }
 
-    // 确认添加银行卡 (持久化到 walletDb)
-    async function confirmAddBankCard() {
+    // 确认添加银行卡
+    function confirmAddBankCard() {
         var name = document.getElementById('bank-card-name-input').value.trim();
         var balance = document.getElementById('bank-card-balance-input').value.trim();
         var type = window._selectedBankCardType || '储蓄卡';
@@ -841,21 +750,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         var emptyEl = document.getElementById('bank-card-empty');
         if (emptyEl) emptyEl.style.display = 'none';
 
-        // 持久化银行卡到 IndexedDB
-        var cardDbId;
-        try {
-            cardDbId = await walletDb.bankCards.add({
-                name: name,
-                type: type,
-                color: color,
-                balance: balanceNum,
-                cardNumber: cardNumber
-            });
-        } catch(e) { console.error("银行卡持久化失败", e); }
-
         // 创建仿真银行卡 HTML
-        var cardId = 'bank-card-' + (cardDbId || Date.now());
-        var cardHtml = '<div class="sim-bank-card" id="' + cardId + '" data-db-id="' + (cardDbId || '') + '" style="background:' + color + ';">' +
+        var cardId = 'bank-card-' + Date.now();
+        var cardHtml = '<div class="sim-bank-card" id="' + cardId + '" style="background:' + color + ';">' +
             '<div class="sim-card-delete-btn" onclick="deleteBankCard(\'' + cardId + '\')">' +
             '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
             '</div>' +
@@ -888,15 +785,10 @@ window.addEventListener('DOMContentLoaded', async () => {
         closeAddBankCardModal();
     }
 
-    // 删除银行卡 (同步从 walletDb 删除)
+    // 删除银行卡
     function deleteBankCard(cardId) {
         var card = document.getElementById(cardId);
         if (card) {
-            // 从 IndexedDB 删除
-            var dbId = card.getAttribute('data-db-id');
-            if (dbId) {
-                walletDb.bankCards.delete(parseInt(dbId)).catch(function(e) { console.error("删除银行卡失败", e); });
-            }
             card.style.transition = 'opacity 0.25s, transform 0.25s';
             card.style.opacity = '0';
             card.style.transform = 'scale(0.9)';
@@ -923,22 +815,6 @@ window.addEventListener('DOMContentLoaded', async () => {
         document.querySelectorAll('.theme-accordion-item').forEach(el => el.classList.remove('active'));
         // 切换当前项
         if (!isActive) item.classList.add('active');
-    }
-    // UI缩放
-    function updateUiScale(val) {
-        document.documentElement.style.zoom = (val / 100);
-        const display = document.getElementById('ui-scale-val');
-        if (display) display.textContent = val + '%';
-        localforage.setItem('miffy_ui_scale', val);
-    }
-    function restoreDefaultUiScale() {
-        const defaultVal = 100;
-        document.documentElement.style.zoom = 1;
-        const slider = document.getElementById('ui-scale-slider');
-        if (slider) slider.value = defaultVal;
-        const display = document.getElementById('ui-scale-val');
-        if (display) display.textContent = defaultVal + '%';
-        localforage.setItem('miffy_ui_scale', defaultVal);
     }
     // 联系人分组增删逻辑
     let contactGroups = [];
@@ -1773,11 +1649,10 @@ document.getElementById('contact-edit-id').value = '';
         }
     }
 
-    // 初始化渲染联系人列表与聊天列表，并恢复钱包数据
+    // 初始化渲染联系人列表与聊天列表
     document.addEventListener('DOMContentLoaded', () => {
         renderContacts();
         renderChatList();
-        initWalletData();
     });
 // 小说应用控制逻辑
     const novelBtn = document.getElementById('app-btn-novel');
@@ -1966,7 +1841,7 @@ document.getElementById('contact-edit-id').value = '';
                     }
                 }
                 msgBodyHtml = `
-                    <div class="card-wrapper" data-no-bubble="1">
+                    <div class="card-wrapper">
                         <div class="chat-red-packet-card" onclick="openRpClaimModal(this, '${rpAmount}', '${rpDesc}', '${rpStatus}', '${isMe ? 'me' : 'role'}', '${roleName}')">
                             <div class="rp-card-top">
                                 <div class="rp-card-icon">
@@ -2011,7 +1886,7 @@ document.getElementById('contact-edit-id').value = '';
                         : `<div class="card-status-tip">你退回了 ${roleName2} 的转账</div>`;
                 }
                 msgBodyHtml = `
-                    <div class="card-wrapper" data-no-bubble="1">
+                    <div class="card-wrapper">
                         <div class="chat-transfer-card" onclick="openTfActionModal(this, '${tfAmount}', '${tfDesc}', '${tfStatus}', '${isMe ? 'me' : 'role'}', '${roleName2}')">
                             <div class="tf-card-top">
                                 <div class="tf-card-icon">
@@ -2315,34 +2190,22 @@ document.getElementById('contact-edit-id').value = '';
         }
     }
     // ====== 角色主页逻辑 ======
-    async function openRoleProfile() {
+    function openRoleProfile() {
         if (!activeChatContact) return;
         const profileApp = document.getElementById('role-profile-app');
-        const avatarImg = document.getElementById('role-profile-avatar-img');
-        const coverBg = document.getElementById('rp-cover-bg');
+        const avatarImg = document.querySelector('#role-profile-avatar-img img');
         const nameEl = document.getElementById('role-profile-name-text');
         const statusEl = document.getElementById('role-profile-status-text');
         const sigEl = document.getElementById('role-profile-signature-text');
+        const titleEl = document.getElementById('role-profile-title');
 
-        const avatarSrc = activeChatContact.roleAvatar || '';
         // 填充头像
-        if (avatarImg) avatarImg.src = avatarSrc;
-        // 封面背景：优先使用用户自定义更换的背景图，否则用头像
-        if (coverBg) {
-            const savedCoverRecord = await imgDb.images.get('rp-cover-bg-img');
-            if (savedCoverRecord && savedCoverRecord.src) {
-                coverBg.style.backgroundImage = `url(${savedCoverRecord.src})`;
-                coverBg.style.background = '';
-            } else if (avatarSrc) {
-                coverBg.style.backgroundImage = `url(${avatarSrc})`;
-                coverBg.style.background = '';
-            } else {
-                coverBg.style.backgroundImage = 'none';
-                coverBg.style.background = 'linear-gradient(135deg,#667eea,#764ba2)';
-            }
+        if (avatarImg) {
+            avatarImg.src = activeChatContact.roleAvatar || 'https://via.placeholder.com/100';
         }
         // 填充姓名
         if (nameEl) nameEl.textContent = activeChatContact.roleName || '角色';
+        if (titleEl) titleEl.textContent = activeChatContact.roleName || '角色主页';
         // 在线状态（固定显示在线）
         if (statusEl) statusEl.textContent = '在线';
         // 个性签名：取角色详细设定的前40字作为签名
@@ -2352,22 +2215,6 @@ document.getElementById('contact-edit-id').value = '';
         }
 
         profileApp.style.display = 'flex';
-
-        // 绑定封面区域点击事件：点击背景区域弹出更换面板（使用标志位防止重复绑定）
-        const coverSection = profileApp.querySelector('.rp-cover-section');
-        if (coverSection && !coverSection._rpClickBound) {
-            coverSection._rpClickBound = true;
-            coverSection.addEventListener('click', function(e) {
-                // 阻止点击返回按钮时触发
-                if (e.target.closest('.rp-back-btn')) return;
-                // 设置当前目标为封面背景
-                currentTargetId = 'rp-cover-bg-img';
-                // 显示菜单面板
-                menu.style.display = 'flex';
-                menu.style.top = `${Math.min(e.clientY, window.innerHeight - 100)}px`;
-                menu.style.left = `${Math.min(e.clientX, window.innerWidth - 110)}px`;
-            });
-        }
     }
 
     function closeRoleProfile() {
@@ -2384,8 +2231,6 @@ document.getElementById('contact-edit-id').value = '';
     }
 
     function openRoleProfileMoments() {
-        // 先隐藏聊天窗口，再关闭角色主页，防止聊天窗口短暂露出
-        document.getElementById('chat-window').style.display = 'none';
         closeRoleProfile();
         // 打开 WeChat 朋友圈页面
         document.getElementById('wechat-app').style.display = 'flex';
@@ -2459,14 +2304,12 @@ document.getElementById('contact-edit-id').value = '';
             const apiKey = await localforage.getItem('miffy_api_key');
             const model = await localforage.getItem('miffy_api_model');
             const temp = parseFloat(await localforage.getItem('miffy_api_temp')) || 0.7;
-            const ctxRaw = await localforage.getItem('miffy_api_ctx');
-            const ctxLimit = (ctxRaw !== null && ctxRaw !== '') ? parseInt(ctxRaw) : 10;
+            const ctxLimit = parseInt(await localforage.getItem('miffy_api_ctx')) || 10;
             if (!apiUrl || !apiKey || !model) {
                 throw new Error("请先在设置中配置 API 网址、密钥和模型。");
             }
             const rawMessages = await chatListDb.messages.where('contactId').equals(lockedContact.id).toArray();
-            // ctxLimit 为 0 时携带全部上下文，否则取最近 N 条
-            const recentMessages = (ctxLimit === 0) ? rawMessages : rawMessages.slice(-ctxLimit);
+            const recentMessages = rawMessages.slice(-ctxLimit);
             const messages = [];
             // 将每轮回复数量调整为 2 到 7 条（两条以上）
             const randomMsgCount = Math.floor(Math.random() * 3) + 4;
@@ -2489,18 +2332,15 @@ document.getElementById('contact-edit-id').value = '';
             // 新增：生成引用和撤回的随机数
             const randReply = Math.random();
             const randRecall = Math.random();
-            // 0.10% 概率触发其一 (相片, 定位, 外卖, 礼物, 电话, 视频)
+            // 0.10% 概率触发其一 (相片, 定位, 红包, 转账, 外卖, 礼物, 电话, 视频)
             const triggerCamera = randSpecial < 0.001;
             const triggerLocation = randSpecial >= 0.001 && randSpecial < 0.002;
-            const triggerTakeaway = randSpecial >= 0.002 && randSpecial < 0.003;
-            const triggerGift = randSpecial >= 0.003 && randSpecial < 0.004;
-            const triggerCall = randSpecial >= 0.004 && randSpecial < 0.005;
-            const triggerVideoCall = randSpecial >= 0.005 && randSpecial < 0.006;
-            // 3% 概率独立触发红包 / 转账（使用独立随机数，互不干扰）
-            const randRedPacket = Math.random();
-            const randTransfer = Math.random();
-            const triggerRedPacket = randRedPacket < 0.03;
-            const triggerTransfer = !triggerRedPacket && randTransfer < 0.03;
+            const triggerRedPacket = randSpecial >= 0.002 && randSpecial < 0.003;
+            const triggerTransfer = randSpecial >= 0.003 && randSpecial < 0.004;
+            const triggerTakeaway = randSpecial >= 0.004 && randSpecial < 0.005;
+            const triggerGift = randSpecial >= 0.005 && randSpecial < 0.006;
+            const triggerCall = randSpecial >= 0.006 && randSpecial < 0.007;
+            const triggerVideoCall = randSpecial >= 0.007 && randSpecial < 0.008;
             // 15% 概率触发语音和表情包
             const triggerVoice = randVoice < 0.15;
             const triggerEmoticon = (randEmoticon < 0.15) && (allEmoticons.length > 0);
@@ -2556,26 +2396,6 @@ document.getElementById('contact-edit-id').value = '';
                 allowedTypes.push("transfer");
                 typeInstructions.push(`{"type": "transfer", "amount": "金额", "desc": "转账给你"}`);
                 specialFeatures.push(`${featureIndex++}. 【强制】本次回复中必须包含转账动作，使用 "type": "transfer"。`);
-            }
-            // 若用户发送了红包/转账，角色可以主动处理（领取/接收/退回）
-            // 检查是否有未处理的我发的红包或转账
-            const pendingRp = rawMessages.slice().reverse().find(m => {
-                if (m.sender !== 'me') return false;
-                try { const p = JSON.parse(m.content); return p.type === 'red_packet' && p.status === 'unclaimed'; } catch(e) { return false; }
-            });
-            const pendingTf = rawMessages.slice().reverse().find(m => {
-                if (m.sender !== 'me') return false;
-                try { const p = JSON.parse(m.content); return p.type === 'transfer' && p.status === 'pending'; } catch(e) { return false; }
-            });
-            if (pendingRp) {
-                allowedTypes.push("handle_red_packet");
-                typeInstructions.push(`{"type": "handle_red_packet", "content": "哇谢谢你的红包！"}`);
-                specialFeatures.push(`${featureIndex++}. 用户发送了红包还未被领取，你可以选择使用 "type": "handle_red_packet" 来领取它（content为你的反应文字），系统会自动更新红包状态并显示提示。`);
-            }
-            if (pendingTf) {
-                allowedTypes.push("handle_transfer");
-                typeInstructions.push(`{"type": "handle_transfer", "action": "received", "content": "收到转账啦谢谢"}`);
-                specialFeatures.push(`${featureIndex++}. 用户发送了转账还未处理，你可以选择使用 "type": "handle_transfer" 来接收（action为"received"）或退回（action为"refunded"），content为你的反应文字，系统会自动更新状态并显示提示。`);
             }
             if (triggerTakeaway) {
                 allowedTypes.push("takeaway");
@@ -2722,9 +2542,7 @@ ${langInstruction}
                         // 逐条渲染回复，每条强制间隔 1.8s
             for (let i = 0; i < replyArr.length; i++) {
                 const msgObj = replyArr[i];
-                // 红包、转账、处理红包/转账类型可能没有 content 字段，需要单独放行
-                const noContentTypes = ['red_packet', 'transfer', 'handle_red_packet', 'handle_transfer'];
-                if (!msgObj.content && !noContentTypes.includes(msgObj.type)) continue;
+                if (!msgObj.content) continue;
                 await new Promise(res => setTimeout(res, 1800));
                 // 1. 处理撤回消息
                 if (msgObj.type === 'recall_msg') {
@@ -2787,14 +2605,6 @@ ${langInstruction}
                         desc: msgObj.desc || '转账',
                         status: 'pending'
                     });
-                } else if (msgObj.type === 'handle_red_packet') {
-                    // 角色领取用户发的红包
-                    await _roleHandleRedPacket(lockedContact);
-                    continue;
-                } else if (msgObj.type === 'handle_transfer') {
-                    // 角色处理用户发的转账（接收或退回）
-                    await _roleHandleTransfer(lockedContact, msgObj.action || 'received');
-                    continue;
                 } else if (['takeaway', 'gift', 'call', 'video_call'].includes(msgObj.type)) {
                     finalContent = JSON.stringify(msgObj);
                 } else if (msgObj.translation) {
@@ -3492,7 +3302,6 @@ ${langInstruction}
             if (selectedKeys.includes('masks')) await exportDexieStore('maskDb', maskDb, ['presets']);
             if (selectedKeys.includes('emoticons')) await exportDexieStore('emoDb', emoDb, ['groups', 'emoticons']);
             if (selectedKeys.includes('images')) await exportDexieStore('imgDb', imgDb, ['images']);
-            if (selectedKeys.includes('wallet')) await exportDexieStore('walletDb', walletDb, ['kv', 'bankCards', 'bills']);
             appendText('\n}');
             flushBuffer();
             // 核心修复：使用 Blob 而不是 File，兼容所有手机浏览器！
@@ -3526,7 +3335,7 @@ ${langInstruction}
         }
         await new Promise(r => setTimeout(r, 50));
         // 全量导出所有的 key
-        const allKeys = ['settings', 'theme', 'contacts', 'worldbook', 'masks', 'emoticons', 'images', 'wallet'];
+        const allKeys = ['settings', 'theme', 'contacts', 'worldbook', 'masks', 'emoticons', 'images'];
         await streamExportData(allKeys, targetBtn);
         if (targetBtn) {
             targetBtn.innerText = "导出数据";
@@ -3590,7 +3399,6 @@ ${langInstruction}
                     await restoreDexie(contactDb, data.contactDb);
                     await restoreDexie(emoDb, data.emoDb);
                     await restoreDexie(chatListDb, data.chatListDb);
-                    await restoreDexie(walletDb, data.walletDb);
                     alert('导入成功，即将刷新页面应用数据！');
                     location.reload();
                 }
@@ -3613,7 +3421,6 @@ ${langInstruction}
                     await contactDb.delete();
                     await emoDb.delete();
                     await chatListDb.delete();
-                    await walletDb.delete();
                     alert('所有数据已清空，即将刷新页面！');
                     location.reload();
                 } catch (e) {
@@ -3731,36 +3538,8 @@ ${langInstruction}
         if (totalEl) totalEl.textContent = '¥' + (qty * s.price).toFixed(2);
     }
 
-    // ---- 持久化股票持仓到 walletDb ----
-    async function _saveStockHoldings() {
-        var holdings = stocks.map(function(s) {
-            return { id: s.id, held: s.held, avgCost: s.avgCost };
-        });
-        try {
-            await walletDb.kv.put({ key: 'stockHoldings', value: JSON.stringify(holdings) });
-        } catch(e) { console.error("股票持仓持久化失败", e); }
-    }
-
-    // ---- 恢复股票持仓 ----
-    async function _restoreStockHoldings() {
-        try {
-            var rec = await walletDb.kv.get('stockHoldings');
-            if (rec && rec.value) {
-                var holdings = JSON.parse(rec.value);
-                holdings.forEach(function(h) {
-                    var s = stocks.find(function(x) { return x.id === h.id; });
-                    if (s) {
-                        s.held = h.held || 0;
-                        s.avgCost = h.avgCost || 0;
-                    }
-                });
-            }
-        } catch(e) { console.error("恢复股票持仓失败", e); }
-    }
-
-    window.openStockApp = async function() {
+    window.openStockApp = function() {
         document.getElementById('stock-app').style.display = 'flex';
-        await _restoreStockHoldings();
         renderStockList();
         updateStockHeader();
         if (!stockTimer) { stockTimer = setInterval(tickPrices, 1000); }
@@ -3829,97 +3608,11 @@ ${langInstruction}
             if (s.held === 0) s.avgCost = 0;
             _addBill('stock', '卖出 ' + s.name, parseFloat(tradeTotal), false, qty + '股 · ¥' + s.price.toFixed(2));
         }
-        // 持久化持仓到 IndexedDB
-        _saveStockHoldings();
         window.closeStockTradeModal();
         renderStockList();
         updateStockHeader();
     };
 })();
-
-// ====== 角色主动处理红包/转账的辅助函数 ======
-async function _roleHandleRedPacket(lockedContact) {
-    // 找到最近一条我发的、未领取的红包消息
-    const allMsgs = await chatListDb.messages.where('contactId').equals(lockedContact.id).toArray();
-    let targetMsg = null;
-    for (let i = allMsgs.length - 1; i >= 0; i--) {
-        const msg = allMsgs[i];
-        if (msg.sender !== 'me') continue;
-        try {
-            const parsed = JSON.parse(msg.content);
-            if (parsed.type === 'red_packet' && parsed.status === 'unclaimed') {
-                targetMsg = msg;
-                break;
-            }
-        } catch(e) {}
-    }
-    if (!targetMsg) return;
-    // 更新消息状态为已领取
-    try {
-        const parsed = JSON.parse(targetMsg.content);
-        parsed.status = 'claimed';
-        await chatListDb.messages.update(targetMsg.id, { content: JSON.stringify(parsed) });
-    } catch(e) { return; }
-    // 刷新聊天窗口
-    const chatWindow = document.getElementById('chat-window');
-    const isCurrentChatActive = chatWindow.style.display === 'flex' && activeChatContact && activeChatContact.id === lockedContact.id;
-    if (isCurrentChatActive) {
-        await refreshChatWindow();
-    }
-    // 显示系统小字提示
-    const roleName = lockedContact.roleName || '对方';
-    const container = document.getElementById('chat-msg-container');
-    const tipHtml = `<div class="msg-recalled-tip">${roleName} 领取了你的红包</div>`;
-    if (isCurrentChatActive && container) {
-        container.insertAdjacentHTML('beforeend', tipHtml);
-        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-    }
-}
-
-async function _roleHandleTransfer(lockedContact, action) {
-    // 找到最近一条我发的、待收款的转账消息
-    const allMsgs = await chatListDb.messages.where('contactId').equals(lockedContact.id).toArray();
-    let targetMsg = null;
-    for (let i = allMsgs.length - 1; i >= 0; i--) {
-        const msg = allMsgs[i];
-        if (msg.sender !== 'me') continue;
-        try {
-            const parsed = JSON.parse(msg.content);
-            if (parsed.type === 'transfer' && parsed.status === 'pending') {
-                targetMsg = msg;
-                break;
-            }
-        } catch(e) {}
-    }
-    if (!targetMsg) return;
-    // 更新消息状态
-    const newStatus = (action === 'refunded') ? 'refunded' : 'received';
-    try {
-        const parsed = JSON.parse(targetMsg.content);
-        parsed.status = newStatus;
-        await chatListDb.messages.update(targetMsg.id, { content: JSON.stringify(parsed) });
-    } catch(e) { return; }
-    // 刷新聊天窗口
-    const chatWindow = document.getElementById('chat-window');
-    const isCurrentChatActive = chatWindow.style.display === 'flex' && activeChatContact && activeChatContact.id === lockedContact.id;
-    if (isCurrentChatActive) {
-        await refreshChatWindow();
-    }
-    // 显示系统小字提示
-    const roleName = lockedContact.roleName || '对方';
-    const container = document.getElementById('chat-msg-container');
-    let tipText = '';
-    if (newStatus === 'received') {
-        tipText = `${roleName} 接收了你的转账`;
-    } else {
-        tipText = `${roleName} 退回了你的转账`;
-    }
-    const tipHtml = `<div class="msg-recalled-tip">${tipText}</div>`;
-    if (isCurrentChatActive && container) {
-        container.insertAdjacentHTML('beforeend', tipHtml);
-        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-    }
-}
 
 // ====== 红包领取弹窗逻辑 ======
 var _rpClaimCardEl = null;
@@ -4199,16 +3892,6 @@ function _doTfAction(newStatus, senderRole, roleName) {
 
     async function _doSendRedPacket() {
         if (!activeChatContact) return;
-        var amount = parseFloat(_rpAmount);
-        // 检查并扣减钱包余额
-        var walletBal = parseFloat((document.getElementById('text-wallet-bal').textContent || '0').replace(/,/g, '')) || 0;
-        if (amount > walletBal) {
-            alert('余额不足（当前余额 ¥' + walletBal.toFixed(2) + '），无法发送红包');
-            return;
-        }
-        var newWalletBal = walletBal - amount;
-        document.getElementById('text-wallet-bal').textContent = newWalletBal.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        walletDb.kv.put({ key: 'walletBalance', value: newWalletBal }).catch(function(e) { console.error("余额持久化失败", e); });
         var container = document.getElementById('chat-msg-container');
         var myAvatar = activeChatContact.userAvatar || 'https://via.placeholder.com/100';
         var roleAvatar = activeChatContact.roleAvatar || 'https://via.placeholder.com/100';
@@ -4232,7 +3915,7 @@ function _doTfAction(newStatus, senderRole, roleName) {
             bindMsgEvents();
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
             // 记录账单
-            _addBill('red_packet', '发红包', amount, true, activeChatContact.roleName || '对方');
+            _addBill('red_packet', '发红包', parseFloat(_rpAmount), true, activeChatContact.roleName || '对方');
         } catch(e) {
             console.error('发送红包失败', e);
         }
@@ -4295,8 +3978,7 @@ function toggleTransferStatus(cardEl) {
             return;
         }
         _tfAmount = amount.toFixed(2);
-        const myNameForTf = document.getElementById('text-wechat-me-name') ? document.getElementById('text-wechat-me-name').textContent : '我';
-        _tfDesc = descVal || (myNameForTf + ' 发起了转账');
+        _tfDesc = descVal || '转账';
         closeTransferModal();
         var noPwd = false;
         try { noPwd = !!(await localforage.getItem('no_pwd_pay_enabled')); } catch(e) {}
@@ -4385,16 +4067,6 @@ function toggleTransferStatus(cardEl) {
 
     async function _doSendTransfer() {
         if (!activeChatContact) return;
-        var amount = parseFloat(_tfAmount);
-        // 检查并扣减钱包余额
-        var walletBal = parseFloat((document.getElementById('text-wallet-bal').textContent || '0').replace(/,/g, '')) || 0;
-        if (amount > walletBal) {
-            alert('余额不足（当前余额 ¥' + walletBal.toFixed(2) + '），无法发起转账');
-            return;
-        }
-        var newWalletBal = walletBal - amount;
-        document.getElementById('text-wallet-bal').textContent = newWalletBal.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        walletDb.kv.put({ key: 'walletBalance', value: newWalletBal }).catch(function(e) { console.error("余额持久化失败", e); });
         var container = document.getElementById('chat-msg-container');
         var myAvatar = activeChatContact.userAvatar || 'https://via.placeholder.com/100';
         var roleAvatar = activeChatContact.roleAvatar || 'https://via.placeholder.com/100';
@@ -4418,7 +4090,7 @@ function toggleTransferStatus(cardEl) {
             bindMsgEvents();
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
             // 记录账单
-            _addBill('transfer', '转账', amount, true, activeChatContact.roleName || '对方');
+            _addBill('transfer', '转账', parseFloat(_tfAmount), true, activeChatContact.roleName || '对方');
         } catch(e) {
             console.error('发送转账失败', e);
         }
@@ -4471,35 +4143,25 @@ function toggleTransferStatus(cardEl) {
     };
 })();
 
-// ====== 账单系统 (持久化: Dexie.js + IndexedDB via walletDb) ======
+// ====== 账单系统 ======
+// 账单数据库（内存存储，页面刷新后清空，符合"近期账单"语义）
 var _billList = [];
 
-async function _addBill(type, name, amount, isOut, detail) {
+function _addBill(type, name, amount, isOut, detail) {
     var now = new Date();
     var h = String(now.getHours()).padStart(2,'0');
     var m = String(now.getMinutes()).padStart(2,'0');
     var mo = String(now.getMonth()+1).padStart(2,'0');
     var d = String(now.getDate()).padStart(2,'0');
-    var bill = {
+    _billList.unshift({
         type: type,       // 'recharge'|'withdraw'|'red_packet'|'transfer'|'stock'|'bank_card'|'family_card'
         name: name,       // 显示名称
         amount: amount,   // 数字
         isOut: isOut,     // true=支出/扣减, false=收入/增加
         detail: detail || '',
         time: mo + '-' + d + ' ' + h + ':' + m
-    };
-    _billList.unshift(bill);
+    });
     if (_billList.length > 50) _billList = _billList.slice(0, 50);
-    // 持久化到 IndexedDB
-    try {
-        await walletDb.bills.add(bill);
-        // 若超过50条，删除最旧的
-        const allBills = await walletDb.bills.orderBy('id').toArray();
-        if (allBills.length > 50) {
-            const toDelete = allBills.slice(0, allBills.length - 50).map(b => b.id);
-            await walletDb.bills.bulkDelete(toDelete);
-        }
-    } catch(e) { console.error("账单持久化失败", e); }
     _renderBills();
 }
 
@@ -4767,10 +4429,7 @@ function _renderBills() {
         _setBankCardBalance(card, cardBal - amount);
         // 钱包余额增加
         var walletBal = _getWalletBalance();
-        var newWalletBal = walletBal + amount;
-        _setWalletBalance(newWalletBal);
-        // 持久化余额到 IndexedDB
-        walletDb.kv.put({ key: 'walletBalance', value: newWalletBal }).catch(function(e) { console.error("余额持久化失败", e); });
+        _setWalletBalance(walletBal + amount);
         // 记录账单
         _addBill('recharge', '充值', amount, false, '来自 ' + cardName);
         closeRechargeModal();
@@ -4827,10 +4486,7 @@ function _renderBills() {
         var wdCardNameEl = card.querySelector('.sim-card-bank-name');
         var wdCardName = wdCardNameEl ? wdCardNameEl.textContent : '银行卡';
         // 钱包余额扣减
-        var newWithdrawBal = walletBal - amount;
-        _setWalletBalance(newWithdrawBal);
-        // 持久化余额到 IndexedDB
-        walletDb.kv.put({ key: 'walletBalance', value: newWithdrawBal }).catch(function(e) { console.error("余额持久化失败", e); });
+        _setWalletBalance(walletBal - amount);
         // 银行卡余额增加
         _setBankCardBalance(card, cardBal + amount);
         // 记录账单

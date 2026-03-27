@@ -1407,3 +1407,306 @@ img {
 }
 .sim-card-delete-btn:active { background: rgba(220,50,50,0.7); }
 .bank-card-manage-mode .sim-card-delete-btn { display: flex; }
+
+/* ====== 红包卡片样式（精美重制版） ====== */
+.chat-red-packet-card {
+    width: 210px;
+    background: #fff;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.04);
+    cursor: pointer;
+    transition: transform 0.18s, box-shadow 0.18s;
+    position: relative;
+    border: 1px solid #f0f0f0;
+}
+.chat-red-packet-card:active {
+    transform: scale(0.97);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+}
+.rp-card-top {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 16px 16px 13px 16px;
+    background: linear-gradient(135deg, #e8534a 0%, #c0392b 100%);
+    position: relative;
+    overflow: hidden;
+}
+.rp-card-top::after {
+    content: '';
+    position: absolute;
+    right: -18px; top: -18px;
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.10);
+    pointer-events: none;
+}
+.rp-card-top::before {
+    content: '';
+    position: absolute;
+    left: -10px; bottom: -20px;
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.07);
+    pointer-events: none;
+}
+.rp-card-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1.5px solid rgba(255,255,255,0.3);
+    position: relative;
+    z-index: 1;
+}
+.rp-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    overflow: hidden;
+    flex: 1;
+    position: relative;
+    z-index: 1;
+}
+.rp-card-amount {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    letter-spacing: 0.5px;
+    line-height: 1.1;
+}
+.rp-card-desc {
+    font-size: 11px;
+    color: rgba(255,255,255,0.80);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 0.3px;
+}
+.rp-card-divider {
+    height: 1px;
+    background: #f0f0f0;
+    margin: 0;
+}
+.rp-card-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 16px 11px;
+    background: #fff;
+}
+.rp-card-status {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+.rp-card-brand {
+    font-size: 10px;
+    color: #ccc;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+
+/* 红包卡片气泡容器透明 */
+.msg-left .chat-msg-content:has(.chat-red-packet-card),
+.msg-right .chat-msg-content:has(.chat-red-packet-card) {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+/* ====== 转账卡片样式（精美重制版） ====== */
+.chat-transfer-card {
+    width: 210px;
+    background: #fff;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.04);
+    cursor: pointer;
+    transition: transform 0.18s, box-shadow 0.18s;
+    position: relative;
+    border: 1px solid #f0f0f0;
+}
+.chat-transfer-card:active {
+    transform: scale(0.97);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+}
+.tf-card-top {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 16px 16px 13px 16px;
+    background: linear-gradient(135deg, #3a8fd4 0%, #1a6fb5 100%);
+    position: relative;
+    overflow: hidden;
+}
+.tf-card-top::after {
+    content: '';
+    position: absolute;
+    right: -18px; top: -18px;
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.10);
+    pointer-events: none;
+}
+.tf-card-top::before {
+    content: '';
+    position: absolute;
+    left: -10px; bottom: -20px;
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.07);
+    pointer-events: none;
+}
+.tf-card-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1.5px solid rgba(255,255,255,0.3);
+    position: relative;
+    z-index: 1;
+}
+.tf-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    overflow: hidden;
+    flex: 1;
+    position: relative;
+    z-index: 1;
+}
+.tf-card-amount {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    letter-spacing: 0.5px;
+    line-height: 1.1;
+}
+.tf-card-desc {
+    font-size: 11px;
+    color: rgba(255,255,255,0.80);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 0.3px;
+}
+.tf-card-divider {
+    height: 1px;
+    background: #f0f0f0;
+    margin: 0;
+}
+.tf-card-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 16px 11px;
+    background: #fff;
+}
+.tf-card-status {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+.tf-card-brand {
+    font-size: 10px;
+    color: #ccc;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+
+/* 转账卡片气泡容器透明 */
+.msg-left .chat-msg-content:has(.chat-transfer-card),
+.msg-right .chat-msg-content:has(.chat-transfer-card) {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+/* ====== 卡片包裹层与状态提示文字 ====== */
+.card-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: inherit;
+}
+.msg-left .card-wrapper { align-items: flex-start; }
+.msg-right .card-wrapper { align-items: flex-end; }
+
+.card-status-tip {
+    font-size: 11px;
+    color: #aaa;
+    text-align: center;
+    letter-spacing: 0.3px;
+    padding: 0 4px;
+    line-height: 1.4;
+    width: 100%;
+}
+
+/* 气泡容器对 card-wrapper 也透明 */
+.msg-left .chat-msg-content:has(.card-wrapper),
+.msg-right .chat-msg-content:has(.card-wrapper) {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+/* ====== 理财股票页面样式（精美重制版） ====== */
+.stock-total-card {
+    background: #fff;
+    border-radius: 24px;
+    padding: 22px 22px 20px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.06), inset 0 0 0 1px rgba(0,0,0,0.03);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 4px;
+    border: 1px solid #f0f0f0;
+}
+.stock-total-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, #f8f9ff 0%, #fff 60%, #f5f8ff 100%);
+    pointer-events: none;
+    z-index: 0;
+}
+.stock-total-card > * { position: relative; z-index: 1; }
+.stock-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 16px 16px 14px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.04);
+    border: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.stock-card:active { transform: scale(0.98); box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.stock-card-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    overflow: hidden;
+}
+.stock-card-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
+    margin-left: 10px;
+}

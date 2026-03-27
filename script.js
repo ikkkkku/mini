@@ -1819,7 +1819,95 @@ document.getElementById('contact-edit-id').value = '';
                 isVoiceMsg = true;
                 voiceText = parsed.content || '';
                 voiceSeconds = Math.max(1, Math.ceil(voiceText.length / 3)); // 3字一秒，最少1秒
-            } else if (parsed && ['red_packet', 'transfer', 'takeaway', 'gift', 'call', 'video_call'].includes(parsed.type)) {
+            } else if (parsed && parsed.type === 'red_packet') {
+                statusHtml = '';
+                const rpAmount = parsed.amount || '0.00';
+                const rpDesc = parsed.desc || '恭喜发财，大吉大利';
+                const rpStatus = parsed.status || 'unclaimed';
+                const rpStatusLabel = rpStatus === 'claimed' ? '已领取' : '待领取';
+                const rpStatusColor = rpStatus === 'claimed' ? '#bbb' : '#e8534a';
+                const roleName = activeChatContact ? (activeChatContact.roleName || '对方') : '对方';
+                const myName = document.getElementById('text-wechat-me-name') ? document.getElementById('text-wechat-me-name').textContent : '我';
+                // 状态提示文字：已领取才显示
+                let rpStatusTip = '';
+                if (rpStatus === 'claimed') {
+                    if (isMe) {
+                        rpStatusTip = `<div class="card-status-tip">${roleName} 领取了你的红包</div>`;
+                    } else {
+                        rpStatusTip = `<div class="card-status-tip">你领取了 ${roleName} 的红包</div>`;
+                    }
+                }
+                msgBodyHtml = `
+                    <div class="card-wrapper">
+                        <div class="chat-red-packet-card" onclick="openRpClaimModal(this, '${rpAmount}', '${rpDesc}', '${rpStatus}', '${isMe ? 'me' : 'role'}', '${roleName}')">
+                            <div class="rp-card-top">
+                                <div class="rp-card-icon">
+                                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="2" y="7" width="20" height="14" rx="3" ry="3"></rect>
+                                        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"></path>
+                                        <line x1="12" y1="12" x2="12" y2="16"></line>
+                                        <line x1="10" y1="14" x2="14" y2="14"></line>
+                                    </svg>
+                                </div>
+                                <div class="rp-card-info">
+                                    <div class="rp-card-amount">¥ ${rpAmount}</div>
+                                    <div class="rp-card-desc">${rpDesc}</div>
+                                </div>
+                            </div>
+                            <div class="rp-card-divider"></div>
+                            <div class="rp-card-bottom">
+                                <span class="rp-card-status" style="color:${rpStatusColor};">${rpStatusLabel}</span>
+                                <span class="rp-card-brand">红包</span>
+                            </div>
+                        </div>
+                        ${rpStatusTip}
+                    </div>
+                `;
+            } else if (parsed && parsed.type === 'transfer') {
+                statusHtml = '';
+                const tfAmount = parsed.amount || '0.00';
+                const tfDesc = parsed.desc || '转账';
+                const tfStatus = parsed.status || 'pending';
+                const tfStatusLabel = tfStatus === 'refunded' ? '已退回' : (tfStatus === 'received' ? '已收款' : '待收款');
+                const tfStatusColor = tfStatus === 'refunded' ? '#bbb' : (tfStatus === 'received' ? '#27ae60' : '#1a6fb5');
+                const roleName2 = activeChatContact ? (activeChatContact.roleName || '对方') : '对方';
+                // 状态提示文字
+                let tfStatusTip = '';
+                if (tfStatus === 'received') {
+                    tfStatusTip = isMe
+                        ? `<div class="card-status-tip">${roleName2} 接收了你的转账</div>`
+                        : `<div class="card-status-tip">你接收了 ${roleName2} 的转账</div>`;
+                } else if (tfStatus === 'refunded') {
+                    tfStatusTip = isMe
+                        ? `<div class="card-status-tip">${roleName2} 退回了你的转账</div>`
+                        : `<div class="card-status-tip">你退回了 ${roleName2} 的转账</div>`;
+                }
+                msgBodyHtml = `
+                    <div class="card-wrapper">
+                        <div class="chat-transfer-card" onclick="openTfActionModal(this, '${tfAmount}', '${tfDesc}', '${tfStatus}', '${isMe ? 'me' : 'role'}', '${roleName2}')">
+                            <div class="tf-card-top">
+                                <div class="tf-card-icon">
+                                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                                        <path d="M2 17l10 5 10-5"></path>
+                                        <path d="M2 12l10 5 10-5"></path>
+                                    </svg>
+                                </div>
+                                <div class="tf-card-info">
+                                    <div class="tf-card-amount">¥ ${tfAmount}</div>
+                                    <div class="tf-card-desc">${tfDesc}</div>
+                                </div>
+                            </div>
+                            <div class="tf-card-divider"></div>
+                            <div class="tf-card-bottom">
+                                <span class="tf-card-status" style="color:${tfStatusColor};">${tfStatusLabel}</span>
+                                <span class="tf-card-brand">转账</span>
+                            </div>
+                        </div>
+                        ${tfStatusTip}
+                    </div>
+                `;
+            } else if (parsed && ['takeaway', 'gift', 'call', 'video_call'].includes(parsed.type)) {
                 // 注解：未实装功能气泡占位显示，待完善UI时直接在此处加入对应卡片渲染
                 msgBodyHtml = `<div class="msg-text-body" style="color:#aaa; font-style:italic; font-size: 12px; background: #f0f0f0; padding: 4px 8px; border-radius: 8px;">[${parsed.type} 功能暂未实装]</div>`;
             }
@@ -2519,8 +2607,8 @@ ${langInstruction}
             bindMsgEvents();
             input.value = '';
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-            // 触发角色自动回复
-            triggerRoleReply();
+            // 【注意】角色不自动回复普通消息。只有 call / video_call / together_listen 类型才触发自动回复（在 triggerRoleReply 内部判断）
+            // triggerRoleReply(); // 已禁用，角色不自动回复
         } catch (e) {
             console.error("保存消息失败", e);
         }
@@ -2753,8 +2841,7 @@ ${langInstruction}
                 container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
                 bindMsgEvents();
                 container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-                // 触发角色自动回复
-                triggerRoleReply();
+                // 【注意】图片发送不触发角色自动回复
             } catch (err) {
                 console.error("保存图片消息失败", err);
             }
@@ -2802,8 +2889,7 @@ ${langInstruction}
             container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
             bindMsgEvents();
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-            // 触发角色自动回复
-            triggerRoleReply();
+            // 【注意】相机发送不触发角色自动回复
         } catch (err) {
             console.error("发送表情消息失败", err);
         }
@@ -2848,8 +2934,7 @@ ${langInstruction}
             container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
             bindMsgEvents();
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-            // 触发角色自动回复
-            triggerRoleReply();
+            // 【注意】语音发送不触发角色自动回复。只有 call/video_call/together_listen 才触发。
         } catch (e) {
             console.error("保存语音消息失败", e);
         }
@@ -2900,8 +2985,7 @@ ${langInstruction}
             container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
             bindMsgEvents();
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-            // 触发角色自动回复
-            triggerRoleReply();
+            // 【注意】定位发送不触发角色自动回复。只有 call/video_call/together_listen 才触发。
         } catch (e) {
             console.error("保存定位消息失败", e);
         }
@@ -3280,6 +3364,662 @@ ${langInstruction}
         }
                    }
 
+// ====== 理财股票功能 ======
+(function() {
+    var stocks = [
+        { id: 0, name: '腾讯控股', code: '00700.HK', price: 328.60, open: 328.60, held: 0, avgCost: 0, color: '#1a6fb5' },
+        { id: 1, name: '贵州茅台', code: '600519.SH', price: 1688.00, open: 1688.00, held: 0, avgCost: 0, color: '#e74c3c' },
+        { id: 2, name: '宁德时代', code: '300750.SZ', price: 198.50, open: 198.50, held: 0, avgCost: 0, color: '#27ae60' },
+        { id: 3, name: '比亚迪', code: '002594.SZ', price: 285.30, open: 285.30, held: 0, avgCost: 0, color: '#8e44ad' }
+    ];
+    var stockTimer = null;
+    var currentTradeStockId = -1;
+    var currentTradeMode = 'buy';
+
+    function tickPrices() {
+        stocks.forEach(function(s) {
+            var volatility = s.price * 0.003;
+            var change = (Math.random() - 0.5) * 2 * volatility;
+            var drift = (s.open - s.price) * 0.002;
+            s.price = Math.max(s.price + change + drift, s.price * 0.7);
+            s.price = parseFloat(s.price.toFixed(2));
+        });
+        renderStockList();
+        updateStockTradeModal();
+        updateStockHeader();
+    }
+
+    function renderStockList() {
+        var body = document.getElementById('stock-list-body');
+        if (!body) return;
+        var html = '';
+        stocks.forEach(function(s) {
+            var change = s.price - s.open;
+            var changePct = (change / s.open * 100);
+            var isUp = change >= 0;
+            var changeColor = isUp ? '#e74c3c' : '#27ae60';
+            var changeSign = isUp ? '+' : '';
+            var holdValue = s.held * s.price;
+            var holdProfit = s.held > 0 ? (s.price - s.avgCost) * s.held : 0;
+            html += '<div class="stock-card">' +
+                '<div class="stock-card-left">' +
+                    '<div style="display:flex;align-items:center;gap:8px;">' +
+                        '<div style="width:36px;height:36px;border-radius:10px;background:' + s.color + '22;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+                            '<span style="font-size:12px;font-weight:800;color:' + s.color + ';">' + s.name.charAt(0) + '</span>' +
+                        '</div>' +
+                        '<div>' +
+                            '<div style="font-size:14px;font-weight:700;color:#333;">' + s.name + '</div>' +
+                            '<div style="font-size:10px;color:#aaa;margin-top:2px;">' + s.code + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    (s.held > 0 ? '<div style="margin-top:8px;display:flex;gap:12px;">' +
+                        '<div><div style="font-size:9px;color:#aaa;">持仓</div><div style="font-size:12px;font-weight:600;color:#555;">' + s.held + '股</div></div>' +
+                        '<div><div style="font-size:9px;color:#aaa;">市值</div><div style="font-size:12px;font-weight:600;color:#555;">¥' + holdValue.toFixed(2) + '</div></div>' +
+                        '<div><div style="font-size:9px;color:#aaa;">盈亏</div><div style="font-size:12px;font-weight:600;color:' + (holdProfit >= 0 ? '#e74c3c' : '#27ae60') + ';">' + (holdProfit >= 0 ? '+' : '') + holdProfit.toFixed(2) + '</div></div>' +
+                    '</div>' : '') +
+                '</div>' +
+                '<div class="stock-card-right">' +
+                    '<div style="font-size:20px;font-weight:800;color:' + changeColor + ';font-family:Arial,sans-serif;" id="stock-price-' + s.id + '">¥' + s.price.toFixed(2) + '</div>' +
+                    '<div style="font-size:11px;color:' + changeColor + ';margin-top:2px;" id="stock-change-' + s.id + '">' + changeSign + change.toFixed(2) + ' (' + changeSign + changePct.toFixed(2) + '%)</div>' +
+                    '<div style="display:flex;gap:6px;margin-top:8px;">' +
+                        '<div onclick="openStockTrade(' + s.id + ',\'buy\')" style="padding:5px 10px;background:#e74c3c;border-radius:8px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">买入</div>' +
+                        (s.held > 0 ? '<div onclick="openStockTrade(' + s.id + ',\'sell\')" style="padding:5px 10px;background:#27ae60;border-radius:8px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">卖出</div>' : '') +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        });
+        body.innerHTML = html;
+    }
+
+    function updateStockHeader() {
+        var totalValue = 0, totalProfit = 0, todayProfit = 0;
+        stocks.forEach(function(s) {
+            if (s.held > 0) {
+                totalValue += s.held * s.price;
+                totalProfit += (s.price - s.avgCost) * s.held;
+                todayProfit += (s.price - s.open) * s.held;
+            }
+        });
+        var tv = document.getElementById('stock-total-value');
+        var tp = document.getElementById('stock-today-profit');
+        var tpp = document.getElementById('stock-total-profit');
+        if (tv) tv.textContent = totalValue.toFixed(2);
+        if (tp) { tp.textContent = (todayProfit >= 0 ? '+' : '') + todayProfit.toFixed(2); tp.style.color = todayProfit >= 0 ? '#ff8080' : '#80ffa0'; }
+        if (tpp) { tpp.textContent = (totalProfit >= 0 ? '+' : '') + totalProfit.toFixed(2); tpp.style.color = totalProfit >= 0 ? '#ff8080' : '#80ffa0'; }
+    }
+
+    function updateStockTradeModal() {
+        if (currentTradeStockId < 0) return;
+        var s = stocks[currentTradeStockId];
+        var priceEl = document.getElementById('stock-trade-price');
+        var changeEl = document.getElementById('stock-trade-change');
+        var totalEl = document.getElementById('stock-trade-total');
+        var qtyEl = document.getElementById('stock-trade-qty');
+        if (!priceEl) return;
+        var change = s.price - s.open;
+        var changePct = (change / s.open * 100);
+        var isUp = change >= 0;
+        var changeColor = isUp ? '#e74c3c' : '#27ae60';
+        priceEl.textContent = '¥' + s.price.toFixed(2);
+        priceEl.style.color = changeColor;
+        changeEl.textContent = (isUp ? '+' : '') + change.toFixed(2) + ' (' + (isUp ? '+' : '') + changePct.toFixed(2) + '%)';
+        changeEl.style.color = changeColor;
+        var qty = parseInt(qtyEl.value) || 100;
+        if (totalEl) totalEl.textContent = '¥' + (qty * s.price).toFixed(2);
+    }
+
+    window.openStockApp = function() {
+        document.getElementById('stock-app').style.display = 'flex';
+        renderStockList();
+        updateStockHeader();
+        if (!stockTimer) { stockTimer = setInterval(tickPrices, 1000); }
+    };
+
+    window.closeStockApp = function() {
+        document.getElementById('stock-app').style.display = 'none';
+        if (stockTimer) { clearInterval(stockTimer); stockTimer = null; }
+    };
+
+    window.openStockTrade = function(stockId, mode) {
+        currentTradeStockId = stockId;
+        currentTradeMode = mode;
+        var s = stocks[stockId];
+        var titleEl = document.getElementById('stock-trade-title');
+        var confirmBtn = document.getElementById('stock-trade-confirm-btn');
+        var qtyEl = document.getElementById('stock-trade-qty');
+        document.getElementById('stock-trade-name').textContent = s.name;
+        document.getElementById('stock-trade-code').textContent = s.code;
+        titleEl.textContent = mode === 'buy' ? '买入 ' + s.name : '卖出 ' + s.name;
+        titleEl.style.color = mode === 'buy' ? '#e74c3c' : '#27ae60';
+        confirmBtn.textContent = mode === 'buy' ? '确认买入' : '确认卖出';
+        confirmBtn.style.background = mode === 'buy' ? 'linear-gradient(135deg,#e74c3c,#c0392b)' : 'linear-gradient(135deg,#27ae60,#1e8449)';
+        confirmBtn.style.boxShadow = mode === 'buy' ? '0 8px 20px rgba(231,76,60,0.35)' : '0 8px 20px rgba(39,174,96,0.35)';
+        qtyEl.value = 100;
+        updateStockTradeModal();
+        var modal = document.getElementById('stock-trade-modal');
+        var sheet = document.getElementById('stock-trade-sheet');
+        modal.style.display = 'flex';
+        requestAnimationFrame(function() { requestAnimationFrame(function() { sheet.style.transform = 'translateY(0)'; }); });
+    };
+
+    window.closeStockTradeModal = function() {
+        var sheet = document.getElementById('stock-trade-sheet');
+        var modal = document.getElementById('stock-trade-modal');
+        sheet.style.transform = 'translateY(100%)';
+        setTimeout(function() { modal.style.display = 'none'; }, 340);
+        currentTradeStockId = -1;
+    };
+
+    window.stockTradeQtyAdj = function(delta) {
+        var qtyEl = document.getElementById('stock-trade-qty');
+        var val = Math.max(1, (parseInt(qtyEl.value) || 0) + delta);
+        qtyEl.value = val;
+        updateStockTradeModal();
+    };
+
+    document.addEventListener('input', function(e) {
+        if (e.target && e.target.id === 'stock-trade-qty') { updateStockTradeModal(); }
+    });
+
+    window.confirmStockTrade = function() {
+        if (currentTradeStockId < 0) return;
+        var s = stocks[currentTradeStockId];
+        var qty = parseInt(document.getElementById('stock-trade-qty').value) || 0;
+        if (qty <= 0) return;
+        if (currentTradeMode === 'buy') {
+            var totalCost = s.held * s.avgCost + qty * s.price;
+            s.held += qty;
+            s.avgCost = s.held > 0 ? totalCost / s.held : 0;
+        } else {
+            if (qty > s.held) { alert('持仓不足，最多可卖 ' + s.held + ' 股'); return; }
+            s.held -= qty;
+            if (s.held === 0) s.avgCost = 0;
+        }
+        window.closeStockTradeModal();
+        renderStockList();
+        updateStockHeader();
+    };
+})();
+
+// ====== 红包领取弹窗逻辑 ======
+var _rpClaimCardEl = null;
+function openRpClaimModal(cardEl, amount, desc, status, senderRole, roleName) {
+    _rpClaimCardEl = cardEl;
+    document.getElementById('rp-claim-amount').textContent = '¥ ' + amount;
+    document.getElementById('rp-claim-desc').textContent = desc;
+    var actionsEl = document.getElementById('rp-claim-actions');
+    actionsEl.innerHTML = '';
+    if (status === 'claimed') {
+        // 已领取：只显示状态文字
+        actionsEl.innerHTML = '<div style="font-size:15px; color:rgba(255,255,255,0.7); letter-spacing:0.5px; padding:6px 0;">已领取</div>';
+    } else {
+        // 未领取：根据发送方决定按钮
+        if (senderRole === 'me') {
+            // 我发的，等待对方领取 → 只显示提示
+            actionsEl.innerHTML = '<div style="font-size:13px; color:rgba(255,255,255,0.65); text-align:center; line-height:1.6;">等待 ' + roleName + ' 领取</div>';
+        } else {
+            // 角色发的，我可以领取
+            var btn = document.createElement('div');
+            btn.style.cssText = 'width:100%; height:48px; background:rgba(255,255,255,0.22); border-radius:16px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; font-weight:700; cursor:pointer; border:1.5px solid rgba(255,255,255,0.35); transition:background 0.2s;';
+            btn.textContent = '领取红包';
+            btn.onmousedown = function() { btn.style.background = 'rgba(255,255,255,0.35)'; };
+            btn.onmouseup = function() { btn.style.background = 'rgba(255,255,255,0.22)'; };
+            btn.onclick = function() { _doClaimRp(senderRole, roleName); };
+            actionsEl.appendChild(btn);
+        }
+    }
+    var modal = document.getElementById('rp-claim-modal');
+    modal.style.display = 'flex';
+    var card = document.getElementById('rp-claim-card');
+    card.style.transform = 'scale(0.85)';
+    card.style.opacity = '0';
+    card.style.transition = 'transform 0.28s cubic-bezier(0.16,1,0.3,1), opacity 0.28s';
+    requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+            card.style.transform = 'scale(1)';
+            card.style.opacity = '1';
+        });
+    });
+}
+function closeRpClaimModal() {
+    document.getElementById('rp-claim-modal').style.display = 'none';
+    _rpClaimCardEl = null;
+}
+function _doClaimRp(senderRole, roleName) {
+    closeRpClaimModal();
+    if (!_rpClaimCardEl) return;
+    // 更新卡片状态
+    var statusEl = _rpClaimCardEl.querySelector('.rp-card-status');
+    if (statusEl) {
+        statusEl.textContent = '已领取';
+        statusEl.style.color = '#bbb';
+    }
+    _rpClaimCardEl.style.opacity = '0.75';
+    // 在 card-wrapper 中添加状态提示文字
+    var wrapper = _rpClaimCardEl.closest('.card-wrapper');
+    if (wrapper) {
+        var existing = wrapper.querySelector('.card-status-tip');
+        if (!existing) {
+            var tip = document.createElement('div');
+            tip.className = 'card-status-tip';
+            tip.textContent = senderRole === 'me' ? (roleName + ' 领取了你的红包') : ('你领取了 ' + roleName + ' 的红包');
+            wrapper.appendChild(tip);
+        }
+    }
+}
+
+// ====== 转账操作弹窗逻辑 ======
+var _tfActionCardEl = null;
+function openTfActionModal(cardEl, amount, desc, status, senderRole, roleName) {
+    _tfActionCardEl = cardEl;
+    document.getElementById('tf-action-amount').textContent = '¥ ' + amount;
+    document.getElementById('tf-action-desc').textContent = desc;
+    var actionsEl = document.getElementById('tf-action-actions');
+    actionsEl.innerHTML = '';
+    if (status === 'received' || status === 'refunded') {
+        // 已处理：只显示状态
+        var label = status === 'received' ? '已收款' : '已退回';
+        actionsEl.innerHTML = '<div style="font-size:15px; color:#888; letter-spacing:0.5px; padding:6px 0;">' + label + '</div>';
+    } else {
+        // 待收款：根据发送方决定按钮
+        if (senderRole === 'me') {
+            // 我发的，等待对方操作
+            actionsEl.innerHTML = '<div style="font-size:13px; color:#aaa; text-align:center; line-height:1.6;">等待 ' + roleName + ' 处理</div>';
+        } else {
+            // 角色发的，我可以接收或退回
+            var receiveBtn = document.createElement('div');
+            receiveBtn.style.cssText = 'width:100%; height:46px; background:linear-gradient(135deg,#2980b9,#1a6fb5); border-radius:14px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(26,111,181,0.3); transition:opacity 0.2s;';
+            receiveBtn.textContent = '接收转账';
+            receiveBtn.onclick = function() { _doTfAction('received', senderRole, roleName); };
+            var refundBtn = document.createElement('div');
+            refundBtn.style.cssText = 'width:100%; height:46px; background:#f5f5f5; border-radius:14px; display:flex; align-items:center; justify-content:center; color:#888; font-size:15px; font-weight:600; cursor:pointer; transition:background 0.2s;';
+            refundBtn.textContent = '退回转账';
+            refundBtn.onclick = function() { _doTfAction('refunded', senderRole, roleName); };
+            actionsEl.appendChild(receiveBtn);
+            actionsEl.appendChild(refundBtn);
+        }
+    }
+    var modal = document.getElementById('tf-action-modal');
+    modal.style.display = 'flex';
+    var card = document.getElementById('tf-action-card');
+    card.style.transform = 'scale(0.85)';
+    card.style.opacity = '0';
+    card.style.transition = 'transform 0.28s cubic-bezier(0.16,1,0.3,1), opacity 0.28s';
+    requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+            card.style.transform = 'scale(1)';
+            card.style.opacity = '1';
+        });
+    });
+}
+function closeTfActionModal() {
+    document.getElementById('tf-action-modal').style.display = 'none';
+    _tfActionCardEl = null;
+}
+function _doTfAction(newStatus, senderRole, roleName) {
+    closeTfActionModal();
+    if (!_tfActionCardEl) return;
+    var statusEl = _tfActionCardEl.querySelector('.tf-card-status');
+    if (statusEl) {
+        if (newStatus === 'received') {
+            statusEl.textContent = '已收款';
+            statusEl.style.color = '#27ae60';
+        } else {
+            statusEl.textContent = '已退回';
+            statusEl.style.color = '#bbb';
+            _tfActionCardEl.style.opacity = '0.72';
+        }
+    }
+    var wrapper = _tfActionCardEl.closest('.card-wrapper');
+    if (wrapper) {
+        var existing = wrapper.querySelector('.card-status-tip');
+        if (!existing) {
+            var tip = document.createElement('div');
+            tip.className = 'card-status-tip';
+            if (newStatus === 'received') {
+                tip.textContent = senderRole === 'me' ? (roleName + ' 接收了你的转账') : ('你接收了 ' + roleName + ' 的转账');
+            } else {
+                tip.textContent = senderRole === 'me' ? (roleName + ' 退回了你的转账') : ('你退回了 ' + roleName + ' 的转账');
+            }
+            wrapper.appendChild(tip);
+        }
+    }
+}
+
+// ====== 红包功能逻辑 ======
+(function() {
+    var _rpAmount = '';
+    var _rpDesc = '';
+    var _rpPwdInput = '';
+
+    // 打开红包弹窗
+    window.openRedPacketModal = function() {
+        if (!activeChatContact) return;
+        hideChatExtPanel();
+        var modal = document.getElementById('red-packet-modal');
+        var sheet = document.getElementById('red-packet-sheet');
+        document.getElementById('red-packet-amount-input').value = '';
+        document.getElementById('red-packet-desc-input').value = '';
+        modal.style.display = 'flex';
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                sheet.style.transform = 'translateY(0)';
+            });
+        });
+    };
+
+    window.closeRedPacketModal = function() {
+        var sheet = document.getElementById('red-packet-sheet');
+        var modal = document.getElementById('red-packet-modal');
+        sheet.style.transform = 'translateY(100%)';
+        setTimeout(function() { modal.style.display = 'none'; }, 340);
+    };
+
+    // 点击"塞入红包·发送"
+    window.submitRedPacket = async function() {
+        var amountVal = document.getElementById('red-packet-amount-input').value.trim();
+        var descVal = document.getElementById('red-packet-desc-input').value.trim();
+        var amount = parseFloat(amountVal);
+        if (!amountVal || isNaN(amount) || amount <= 0) {
+            document.getElementById('red-packet-amount-input').focus();
+            return;
+        }
+        _rpAmount = amount.toFixed(2);
+        _rpDesc = descVal || '恭喜发财，大吉大利';
+        closeRedPacketModal();
+        // 检查是否开启免密
+        var noPwd = false;
+        try { noPwd = !!(await localforage.getItem('no_pwd_pay_enabled')); } catch(e) {}
+        if (noPwd) {
+            // 免密直接发送
+            await _doSendRedPacket();
+        } else {
+            // 弹出支付密码
+            var stored = null;
+            try { stored = await localforage.getItem('pay_password'); } catch(e) {}
+            if (!stored) {
+                // 未设置密码，直接发
+                await _doSendRedPacket();
+                return;
+            }
+            _rpPwdInput = '';
+            _updateRpBoxes();
+            document.getElementById('rp-pay-amount-hint').textContent = '发送红包 ¥' + _rpAmount;
+            var overlay = document.getElementById('rp-pay-pwd-overlay');
+            var sheet2 = document.getElementById('rp-pay-pwd-sheet');
+            overlay.style.display = 'block';
+            sheet2.style.display = 'block';
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    sheet2.style.transform = 'translateY(0)';
+                });
+            });
+        }
+    };
+
+    window.closeRpPayPwd = function() {
+        var sheet2 = document.getElementById('rp-pay-pwd-sheet');
+        var overlay = document.getElementById('rp-pay-pwd-overlay');
+        sheet2.style.transform = 'translateY(100%)';
+        setTimeout(function() {
+            sheet2.style.display = 'none';
+            overlay.style.display = 'none';
+        }, 320);
+        _rpPwdInput = '';
+    };
+
+    function _updateRpBoxes() {
+        for (var i = 0; i < 6; i++) {
+            var box = document.getElementById('rppb' + i);
+            if (!box) continue;
+            box.innerHTML = i < _rpPwdInput.length
+                ? '<span style="width:10px;height:10px;border-radius:50%;background:#333;display:inline-block;"></span>'
+                : '';
+            box.className = 'pay-pwd-box'
+                + (i < _rpPwdInput.length ? ' filled' : '')
+                + (i === _rpPwdInput.length ? ' active' : '');
+        }
+    }
+
+    window.rpPayKeyInput = async function(digit) {
+        if (_rpPwdInput.length >= 6) return;
+        _rpPwdInput += digit;
+        _updateRpBoxes();
+        if (_rpPwdInput.length === 6) {
+            var stored = null;
+            try { stored = await localforage.getItem('pay_password'); } catch(e) {}
+            if (_rpPwdInput === stored) {
+                closeRpPayPwd();
+                setTimeout(async function() { await _doSendRedPacket(); }, 360);
+            } else {
+                // 密码错误抖动
+                _rpPwdInput = '';
+                var wrap = document.querySelector('#rp-pay-pwd-sheet .pay-pwd-box');
+                if (wrap && wrap.parentElement) {
+                    var p = wrap.parentElement;
+                    var seq = [6, -6, 5, -5, 3, 0];
+                    var idx = 0;
+                    var t = setInterval(function() {
+                        p.style.transform = 'translateX(' + seq[idx] + 'px)';
+                        idx++;
+                        if (idx >= seq.length) { clearInterval(t); p.style.transform = ''; }
+                    }, 60);
+                }
+                setTimeout(function() { _updateRpBoxes(); }, 100);
+            }
+        }
+    };
+
+    window.rpPayKeyDel = function() {
+        if (_rpPwdInput.length > 0) {
+            _rpPwdInput = _rpPwdInput.slice(0, -1);
+            _updateRpBoxes();
+        }
+    };
+
+    async function _doSendRedPacket() {
+        if (!activeChatContact) return;
+        var container = document.getElementById('chat-msg-container');
+        var myAvatar = activeChatContact.userAvatar || 'https://via.placeholder.com/100';
+        var roleAvatar = activeChatContact.roleAvatar || 'https://via.placeholder.com/100';
+        var timeStr = getAmPmTime();
+        var content = JSON.stringify({ type: 'red_packet', amount: _rpAmount, desc: _rpDesc, status: 'unclaimed' });
+        try {
+            var newMsgId = await chatListDb.messages.add({
+                contactId: activeChatContact.id,
+                sender: 'me',
+                content: content,
+                timeStr: timeStr,
+                quoteText: ''
+            });
+            var chat = await chatListDb.chats.where('contactId').equals(activeChatContact.id).first();
+            if (chat) {
+                await chatListDb.chats.update(chat.id, { lastTime: timeStr });
+                renderChatList();
+            }
+            var msgObj = { id: newMsgId, sender: 'me', content: content, timeStr: timeStr, quoteText: '' };
+            container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
+            bindMsgEvents();
+            container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        } catch(e) {
+            console.error('发送红包失败', e);
+        }
+    }
+})();
+
+// ====== 转账卡片状态切换 ======
+function toggleTransferStatus(cardEl) {
+    var statusEl = cardEl.querySelector('.tf-card-status');
+    if (!statusEl) return;
+    var cur = statusEl.textContent;
+    if (cur === '待收款') {
+        statusEl.textContent = '已收款';
+        statusEl.style.color = '#27ae60';
+    } else if (cur === '已收款') {
+        statusEl.textContent = '已退回';
+        statusEl.style.color = '#bbb';
+        cardEl.style.opacity = '0.72';
+    } else {
+        statusEl.textContent = '待收款';
+        statusEl.style.color = '#1a6fb5';
+        cardEl.style.opacity = '1';
+    }
+}
+
+// ====== 转账功能逻辑 ======
+(function() {
+    var _tfAmount = '';
+    var _tfDesc = '';
+    var _tfPwdInput = '';
+
+    window.openTransferModal = function() {
+        if (!activeChatContact) return;
+        hideChatExtPanel();
+        var modal = document.getElementById('transfer-modal');
+        var sheet = document.getElementById('transfer-sheet');
+        document.getElementById('transfer-amount-input').value = '';
+        document.getElementById('transfer-desc-input').value = '';
+        modal.style.display = 'flex';
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                sheet.style.transform = 'translateY(0)';
+            });
+        });
+    };
+
+    window.closeTransferModal = function() {
+        var sheet = document.getElementById('transfer-sheet');
+        var modal = document.getElementById('transfer-modal');
+        sheet.style.transform = 'translateY(100%)';
+        setTimeout(function() { modal.style.display = 'none'; }, 340);
+    };
+
+    window.submitTransfer = async function() {
+        var amountVal = document.getElementById('transfer-amount-input').value.trim();
+        var descVal = document.getElementById('transfer-desc-input').value.trim();
+        var amount = parseFloat(amountVal);
+        if (!amountVal || isNaN(amount) || amount <= 0) {
+            document.getElementById('transfer-amount-input').focus();
+            return;
+        }
+        _tfAmount = amount.toFixed(2);
+        _tfDesc = descVal || '转账';
+        closeTransferModal();
+        var noPwd = false;
+        try { noPwd = !!(await localforage.getItem('no_pwd_pay_enabled')); } catch(e) {}
+        if (noPwd) {
+            await _doSendTransfer();
+        } else {
+            var stored = null;
+            try { stored = await localforage.getItem('pay_password'); } catch(e) {}
+            if (!stored) {
+                await _doSendTransfer();
+                return;
+            }
+            _tfPwdInput = '';
+            _updateTfBoxes();
+            document.getElementById('tf-pay-amount-hint').textContent = '转账 ¥' + _tfAmount;
+            var overlay = document.getElementById('tf-pay-pwd-overlay');
+            var sheet2 = document.getElementById('tf-pay-pwd-sheet');
+            overlay.style.display = 'block';
+            sheet2.style.display = 'block';
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    sheet2.style.transform = 'translateY(0)';
+                });
+            });
+        }
+    };
+
+    window.closeTfPayPwd = function() {
+        var sheet2 = document.getElementById('tf-pay-pwd-sheet');
+        var overlay = document.getElementById('tf-pay-pwd-overlay');
+        sheet2.style.transform = 'translateY(100%)';
+        setTimeout(function() {
+            sheet2.style.display = 'none';
+            overlay.style.display = 'none';
+        }, 320);
+        _tfPwdInput = '';
+    };
+
+    function _updateTfBoxes() {
+        for (var i = 0; i < 6; i++) {
+            var box = document.getElementById('tfpb' + i);
+            if (!box) continue;
+            box.innerHTML = i < _tfPwdInput.length
+                ? '<span style="width:10px;height:10px;border-radius:50%;background:#333;display:inline-block;"></span>'
+                : '';
+            box.className = 'pay-pwd-box'
+                + (i < _tfPwdInput.length ? ' filled' : '')
+                + (i === _tfPwdInput.length ? ' active' : '');
+        }
+    }
+
+    window.tfPayKeyInput = async function(digit) {
+        if (_tfPwdInput.length >= 6) return;
+        _tfPwdInput += digit;
+        _updateTfBoxes();
+        if (_tfPwdInput.length === 6) {
+            var stored = null;
+            try { stored = await localforage.getItem('pay_password'); } catch(e) {}
+            if (_tfPwdInput === stored) {
+                closeTfPayPwd();
+                setTimeout(async function() { await _doSendTransfer(); }, 360);
+            } else {
+                _tfPwdInput = '';
+                var wrap = document.querySelector('#tf-pay-pwd-sheet .pay-pwd-box');
+                if (wrap && wrap.parentElement) {
+                    var p = wrap.parentElement;
+                    var seq = [6, -6, 5, -5, 3, 0];
+                    var idx = 0;
+                    var t = setInterval(function() {
+                        p.style.transform = 'translateX(' + seq[idx] + 'px)';
+                        idx++;
+                        if (idx >= seq.length) { clearInterval(t); p.style.transform = ''; }
+                    }, 60);
+                }
+                setTimeout(function() { _updateTfBoxes(); }, 100);
+            }
+        }
+    };
+
+    window.tfPayKeyDel = function() {
+        if (_tfPwdInput.length > 0) {
+            _tfPwdInput = _tfPwdInput.slice(0, -1);
+            _updateTfBoxes();
+        }
+    };
+
+    async function _doSendTransfer() {
+        if (!activeChatContact) return;
+        var container = document.getElementById('chat-msg-container');
+        var myAvatar = activeChatContact.userAvatar || 'https://via.placeholder.com/100';
+        var roleAvatar = activeChatContact.roleAvatar || 'https://via.placeholder.com/100';
+        var timeStr = getAmPmTime();
+        var content = JSON.stringify({ type: 'transfer', amount: _tfAmount, desc: _tfDesc, status: 'pending' });
+        try {
+            var newMsgId = await chatListDb.messages.add({
+                contactId: activeChatContact.id,
+                sender: 'me',
+                content: content,
+                timeStr: timeStr,
+                quoteText: ''
+            });
+            var chat = await chatListDb.chats.where('contactId').equals(activeChatContact.id).first();
+            if (chat) {
+                await chatListDb.chats.update(chat.id, { lastTime: timeStr });
+                renderChatList();
+            }
+            var msgObj = { id: newMsgId, sender: 'me', content: content, timeStr: timeStr, quoteText: '' };
+            container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
+            bindMsgEvents();
+            container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        } catch(e) {
+            console.error('发送转账失败', e);
+        }
+    }
+})();
+
 // ====== 免密支付功能 ======
 (function() {
     var NO_PWD_KEY = 'no_pwd_pay_enabled';
@@ -3324,6 +4064,287 @@ ${langInstruction}
             thumb.style.left = isNoPwdEnabled ? '22px' : '2px';
         }
     };
+})();
+
+// ====== 充值 & 提现功能 ======
+(function() {
+    // 内部状态：当前选中的来源/目标索引（-1=未选，>=0=银行卡序号，'family_N'=亲属卡）
+    var _rechargeSelectedIndex = -1;
+    var _withdrawSelectedIndex = -1;
+
+    // ---- 辅助：读取当前余额数字 ----
+    function _getWalletBalance() {
+        var el = document.getElementById('text-wallet-bal');
+        if (!el) return 0;
+        var raw = el.textContent.replace(/,/g, '').trim();
+        return parseFloat(raw) || 0;
+    }
+
+    // ---- 辅助：设置余额显示 ----
+    function _setWalletBalance(val) {
+        var el = document.getElementById('text-wallet-bal');
+        if (!el) return;
+        el.textContent = val.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // ---- 辅助：读取银行卡余额（从DOM中的 .sim-card-balance-amount） ----
+    function _getBankCardBalance(cardEl) {
+        var amountEl = cardEl.querySelector('.sim-card-balance-amount');
+        if (!amountEl) return 0;
+        var raw = amountEl.textContent.replace('¥', '').replace(/,/g, '').trim();
+        return parseFloat(raw) || 0;
+    }
+
+    // ---- 辅助：设置银行卡余额 ----
+    function _setBankCardBalance(cardEl, val) {
+        var amountEl = cardEl.querySelector('.sim-card-balance-amount');
+        if (!amountEl) return;
+        amountEl.textContent = '¥ ' + val.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // ---- 辅助：获取所有银行卡 DOM 元素 ----
+    function _getBankCards() {
+        return Array.from(document.querySelectorAll('#bank-card-list .sim-bank-card'));
+    }
+
+    // ---- 辅助：构建选项行（通用） ----
+    function _buildOptionRow(label, subLabel, index, selectedIndex, onSelect) {
+        var row = document.createElement('label');
+        row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:12px 16px; cursor:pointer; gap:10px;';
+        var left = document.createElement('div');
+        left.style.cssText = 'display:flex; flex-direction:column; gap:3px; flex:1; overflow:hidden;';
+        var nameEl = document.createElement('div');
+        nameEl.style.cssText = 'font-size:14px; font-weight:500; color:#333; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;';
+        nameEl.textContent = label;
+        var subEl = document.createElement('div');
+        subEl.style.cssText = 'font-size:11px; color:#aaa;';
+        subEl.textContent = subLabel;
+        left.appendChild(nameEl);
+        left.appendChild(subEl);
+        var radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = onSelect === 'recharge' ? 'recharge-source' : 'withdraw-target';
+        radio.style.cssText = 'width:16px; height:16px; accent-color:#667eea; flex-shrink:0;';
+        radio.value = index;
+        radio.addEventListener('change', function() {
+            if (onSelect === 'recharge') _rechargeSelectedIndex = index;
+            else _withdrawSelectedIndex = index;
+        });
+        row.appendChild(left);
+        row.appendChild(radio);
+        return row;
+    }
+
+    // ---- 构建亲属卡选项（未完善提示） ----
+    function _buildFamilyRow(listId, onSelect) {
+        var row = document.createElement('label');
+        row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:12px 16px; cursor:not-allowed; gap:10px; opacity:0.45;';
+        var left = document.createElement('div');
+        left.style.cssText = 'display:flex; flex-direction:column; gap:3px; flex:1;';
+        var nameEl = document.createElement('div');
+        nameEl.style.cssText = 'font-size:14px; font-weight:500; color:#333;';
+        nameEl.textContent = '亲属卡';
+        var subEl = document.createElement('div');
+        subEl.style.cssText = 'font-size:11px; color:#aaa;';
+        subEl.textContent = '（未完善）';
+        left.appendChild(nameEl);
+        left.appendChild(subEl);
+        var radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = onSelect === 'recharge' ? 'recharge-source' : 'withdraw-target';
+        radio.disabled = true;
+        radio.style.cssText = 'width:16px; height:16px; flex-shrink:0;';
+        row.appendChild(left);
+        row.appendChild(radio);
+        return row;
+    }
+
+    // ---- 填充充值来源列表 ----
+    function _populateRechargeList() {
+        var list = document.getElementById('recharge-source-list');
+        if (!list) return;
+        list.innerHTML = '';
+        _rechargeSelectedIndex = -1;
+        var cards = _getBankCards();
+        if (cards.length === 0) {
+            var empty = document.createElement('div');
+            empty.style.cssText = 'padding:16px; font-size:13px; color:#bbb; text-align:center;';
+            empty.textContent = '暂无银行卡，请先添加';
+            list.appendChild(empty);
+        } else {
+            cards.forEach(function(card, idx) {
+                var nameEl = card.querySelector('.sim-card-bank-name');
+                var name = nameEl ? nameEl.textContent : ('银行卡 ' + (idx + 1));
+                var bal = _getBankCardBalance(card);
+                var balStr = '余额 ¥' + bal.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                var divider = document.createElement('div');
+                divider.style.cssText = 'height:1px; background:#f0f0f0; margin:0 16px;';
+                if (idx > 0) list.appendChild(divider);
+                var row = _buildOptionRow(name, balStr, idx, _rechargeSelectedIndex, 'recharge');
+                list.appendChild(row);
+            });
+        }
+        // 亲属卡（未完善）
+        if (cards.length > 0) {
+            var divider2 = document.createElement('div');
+            divider2.style.cssText = 'height:1px; background:#f0f0f0; margin:0 16px;';
+            list.appendChild(divider2);
+        }
+        list.appendChild(_buildFamilyRow('recharge-source-list', 'recharge'));
+    }
+
+    // ---- 填充提现目标列表 ----
+    function _populateWithdrawList() {
+        var list = document.getElementById('withdraw-target-list');
+        if (!list) return;
+        list.innerHTML = '';
+        _withdrawSelectedIndex = -1;
+        var cards = _getBankCards();
+        if (cards.length === 0) {
+            var empty = document.createElement('div');
+            empty.style.cssText = 'padding:16px; font-size:13px; color:#bbb; text-align:center;';
+            empty.textContent = '暂无银行卡，请先添加';
+            list.appendChild(empty);
+        } else {
+            cards.forEach(function(card, idx) {
+                var nameEl = card.querySelector('.sim-card-bank-name');
+                var name = nameEl ? nameEl.textContent : ('银行卡 ' + (idx + 1));
+                var bal = _getBankCardBalance(card);
+                var balStr = '余额 ¥' + bal.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                var divider = document.createElement('div');
+                divider.style.cssText = 'height:1px; background:#f0f0f0; margin:0 16px;';
+                if (idx > 0) list.appendChild(divider);
+                var row = _buildOptionRow(name, balStr, idx, _withdrawSelectedIndex, 'withdraw');
+                list.appendChild(row);
+            });
+        }
+        // 亲属卡（未完善）
+        if (cards.length > 0) {
+            var divider2 = document.createElement('div');
+            divider2.style.cssText = 'height:1px; background:#f0f0f0; margin:0 16px;';
+            list.appendChild(divider2);
+        }
+        list.appendChild(_buildFamilyRow('withdraw-target-list', 'withdraw'));
+    }
+
+    // ---- 打开充值弹窗 ----
+    window.openRechargeModal = function() {
+        _populateRechargeList();
+        document.getElementById('recharge-amount-input').value = '';
+        var modal = document.getElementById('recharge-modal');
+        var sheet = document.getElementById('recharge-sheet');
+        modal.style.display = 'flex';
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                sheet.style.transform = 'translateY(0)';
+            });
+        });
+    };
+
+    // ---- 关闭充值弹窗 ----
+    window.closeRechargeModal = function() {
+        var sheet = document.getElementById('recharge-sheet');
+        var modal = document.getElementById('recharge-modal');
+        sheet.style.transform = 'translateY(100%)';
+        setTimeout(function() { modal.style.display = 'none'; }, 340);
+    };
+
+    // ---- 确认充值 ----
+    window.confirmRecharge = function() {
+        var amountVal = document.getElementById('recharge-amount-input').value.trim();
+        var amount = parseFloat(amountVal);
+        if (!amountVal || isNaN(amount) || amount <= 0) {
+            document.getElementById('recharge-amount-input').focus();
+            return;
+        }
+        var cards = _getBankCards();
+        if (cards.length === 0) {
+            alert('请先添加银行卡');
+            return;
+        }
+        if (_rechargeSelectedIndex < 0 || _rechargeSelectedIndex >= cards.length) {
+            alert('请选择充值来源');
+            return;
+        }
+        var card = cards[_rechargeSelectedIndex];
+        var cardBal = _getBankCardBalance(card);
+        if (amount > cardBal) {
+            alert('银行卡余额不足（当前余额 ¥' + cardBal.toFixed(2) + '）');
+            return;
+        }
+        // 银行卡扣减
+        _setBankCardBalance(card, cardBal - amount);
+        // 钱包余额增加
+        var walletBal = _getWalletBalance();
+        _setWalletBalance(walletBal + amount);
+        closeRechargeModal();
+        // 简单 Toast 提示
+        _showSimpleToast('充值成功 ¥' + amount.toFixed(2));
+    };
+
+    // ---- 打开提现弹窗 ----
+    window.openWithdrawModal = function() {
+        _populateWithdrawList();
+        document.getElementById('withdraw-amount-input').value = '';
+        var modal = document.getElementById('withdraw-modal');
+        var sheet = document.getElementById('withdraw-sheet');
+        modal.style.display = 'flex';
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                sheet.style.transform = 'translateY(0)';
+            });
+        });
+    };
+
+    // ---- 关闭提现弹窗 ----
+    window.closeWithdrawModal = function() {
+        var sheet = document.getElementById('withdraw-sheet');
+        var modal = document.getElementById('withdraw-modal');
+        sheet.style.transform = 'translateY(100%)';
+        setTimeout(function() { modal.style.display = 'none'; }, 340);
+    };
+
+    // ---- 确认提现 ----
+    window.confirmWithdraw = function() {
+        var amountVal = document.getElementById('withdraw-amount-input').value.trim();
+        var amount = parseFloat(amountVal);
+        if (!amountVal || isNaN(amount) || amount <= 0) {
+            document.getElementById('withdraw-amount-input').focus();
+            return;
+        }
+        var cards = _getBankCards();
+        if (cards.length === 0) {
+            alert('请先添加银行卡');
+            return;
+        }
+        if (_withdrawSelectedIndex < 0 || _withdrawSelectedIndex >= cards.length) {
+            alert('请选择提现目标');
+            return;
+        }
+        var walletBal = _getWalletBalance();
+        if (amount > walletBal) {
+            alert('余额不足（当前余额 ¥' + walletBal.toFixed(2) + '）');
+            return;
+        }
+        var card = cards[_withdrawSelectedIndex];
+        var cardBal = _getBankCardBalance(card);
+        // 钱包余额扣减
+        _setWalletBalance(walletBal - amount);
+        // 银行卡余额增加
+        _setBankCardBalance(card, cardBal + amount);
+        closeWithdrawModal();
+        _showSimpleToast('提现成功 ¥' + amount.toFixed(2));
+    };
+
+    // ---- 简单 Toast ----
+    function _showSimpleToast(msg) {
+        var t = document.createElement('div');
+        t.textContent = msg;
+        t.style.cssText = 'position:absolute;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.65);color:#fff;padding:8px 18px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;white-space:nowrap;';
+        var screen = document.querySelector('.phone-screen');
+        if (screen) screen.appendChild(t);
+        setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 2200);
+    }
 })();
 
 // ====== 支付密码功能 ======

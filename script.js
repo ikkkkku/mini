@@ -1,4 +1,4 @@
-﻿const whitePixel = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+const whitePixel = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 const imgDb = new Dexie("miniPhoneImagesDB");
 imgDb.version(1).stores({ images: 'id, src' });
 
@@ -2761,8 +2761,17 @@ ${langInstruction}
                     // 兜底正则清理
                     cleanText = cleanText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
                 }
-                replyArr = JSON.parse(cleanText);
-                if (!Array.isArray(replyArr)) throw new Error("返回的不是JSON数组");
+                let parsedJson = JSON.parse(cleanText);
+                if (!Array.isArray(parsedJson)) {
+                    // 修复：如果大模型返回的是单个 JSON 对象，自动将其包裹为数组，防止触发报错导致源码暴露
+                    if (typeof parsedJson === 'object' && parsedJson !== null) {
+                        replyArr = [parsedJson]; 
+                    } else {
+                        throw new Error("返回的不是JSON数组或对象");
+                    }
+                } else {
+                    replyArr = parsedJson;
+                }
             } catch (e) {
                 console.warn("JSON解析失败，尝试按换行拆分兜底处理", e);
                 replyArr = replyText.split('\n').filter(t => t.trim()).map(t => ({ type: 'text', content: t.trim() }));
@@ -3905,9 +3914,22 @@ async function _roleHandleRedPacket(lockedContact) {
     if (!targetMsg) return;
     // 更新消息状态为已领取
     try {
+try {
         const parsed = JSON.parse(targetMsg.content);
-        parsed.status = 'claimed';
+        parsed.status = newStatus;
         await chatListDb.messages.update(targetMsg.id, { content: JSON.stringify(parsed) });
+        
+        // 修复：如果大模型角色拒收并退回了用户的转账，必须把钱退回用户的钱包
+        if (newStatus === 'refunded') {
+            const amount = parseFloat(parsed.amount) || 0;
+            if (amount > 0) {
+                let walletBal = parseFloat((document.getElementById('text-wallet-bal').textContent || '0').replace(/,/g, '')) || 0;
+                let newBal = walletBal + amount;
+                document.getElementById('text-wallet-bal').textContent = newBal.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                walletDb.kv.put({ key: 'walletBalance', value: newBal }).catch(e=>{});
+                _addBill('transfer', '转账退回', amount, false, '来自 ' + (lockedContact.roleName || '对方'));
+            }
+        }
     } catch(e) { return; }
     // 刷新聊天窗口
     const chatWindow = document.getElementById('chat-window');
@@ -4017,6 +4039,20 @@ function closeRpClaimModal() {
 function _doClaimRp(senderRole, roleName) {
     closeRpClaimModal();
     if (!_rpClaimCardEl) return;
+    
+    // 修复：角色发红包且用户领取时，将金额真实加入用户钱包并记账
+    if (senderRole !== 'me') {
+        var amountStr = document.getElementById('rp-claim-amount').textContent.replace('¥', '').trim();
+        var amount = parseFloat(amountStr) || 0;
+        if (amount > 0) {
+            var walletBal = parseFloat((document.getElementById('text-wallet-bal').textContent || '0').replace(/,/g, '')) || 0;
+            var newBal = walletBal + amount;
+            document.getElementById('text-wallet-bal').textContent = newBal.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            walletDb.kv.put({ key: 'walletBalance', value: newBal }).catch(function(e){});
+            _addBill('red_packet', '抢红包', amount, false, '来自 ' + roleName);
+        }
+    }
+
     // 更新卡片状态
     var statusEl = _rpClaimCardEl.querySelector('.rp-card-status');
     if (statusEl) {
@@ -4099,6 +4135,20 @@ function closeTfActionModal() {
 function _doTfAction(newStatus, senderRole, roleName) {
     closeTfActionModal();
     if (!_tfActionCardEl) return;
+
+    // 修复：角色发起转账且用户点击接收时，将金额加入钱包并记账
+    if (newStatus === 'received' && senderRole !== 'me') {
+        var amountStr = document.getElementById('tf-action-amount').textContent.replace('¥', '').trim();
+        var amount = parseFloat(amountStr) || 0;
+        if (amount > 0) {
+            var walletBal = parseFloat((document.getElementById('text-wallet-bal').textContent || '0').replace(/,/g, '')) || 0;
+            var newBal = walletBal + amount;
+            document.getElementById('text-wallet-bal').textContent = newBal.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            walletDb.kv.put({ key: 'walletBalance', value: newBal }).catch(function(e){});
+            _addBill('transfer', '接收转账', amount, false, '来自 ' + roleName);
+        }
+    }
+
     var statusEl = _tfActionCardEl.querySelector('.tf-card-status');
     if (statusEl) {
         if (newStatus === 'received') {

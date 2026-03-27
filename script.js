@@ -653,6 +653,154 @@ window.addEventListener('DOMContentLoaded', async () => {
     function closeWalletApp() {
         document.getElementById('wallet-app').style.display = 'none';
     }
+
+// ====== 银行卡页面逻辑 ======
+    function openBankCardApp() {
+        document.getElementById('bank-card-app').style.display = 'flex';
+    }
+    function closeBankCardApp() {
+        document.getElementById('bank-card-app').style.display = 'none';
+        // 退出管理模式
+        var list = document.getElementById('bank-card-list');
+        if (list) list.classList.remove('bank-card-manage-mode');
+        var btn = document.getElementById('bank-card-manage-btn');
+        if (btn) btn.querySelector('span').textContent = '管理';
+    }
+
+    // 管理模式切换
+    function toggleBankCardManage() {
+        var list = document.getElementById('bank-card-list');
+        var btn = document.getElementById('bank-card-manage-btn');
+        var isManage = list.classList.toggle('bank-card-manage-mode');
+        btn.querySelector('span').textContent = isManage ? '完成' : '管理';
+    }
+
+    // 打开添加银行卡弹窗
+    function openAddBankCardModal() {
+        var modal = document.getElementById('add-bank-card-modal');
+        modal.style.display = 'flex';
+        setTimeout(function() {
+            document.getElementById('add-bank-card-sheet').style.transform = 'translateY(0)';
+        }, 10);
+        // 重置表单
+        document.getElementById('bank-card-name-input').value = '';
+        document.getElementById('bank-card-balance-input').value = '';
+        // 重置类型选择
+        document.querySelectorAll('.bank-type-btn').forEach(function(btn) { btn.classList.remove('active'); });
+        document.querySelector('.bank-type-btn').classList.add('active');
+        window._selectedBankCardType = '储蓄卡';
+        // 重置颜色选择
+        document.querySelectorAll('.bank-color-dot').forEach(function(dot) { dot.classList.remove('active'); });
+        document.querySelector('.bank-color-dot').classList.add('active');
+        window._selectedBankCardColor = 'linear-gradient(135deg,#667eea,#764ba2)';
+    }
+
+    // 关闭添加银行卡弹窗
+    function closeAddBankCardModal() {
+        document.getElementById('add-bank-card-sheet').style.transform = 'translateY(100%)';
+        setTimeout(function() {
+            document.getElementById('add-bank-card-modal').style.display = 'none';
+        }, 320);
+    }
+
+    // 选择银行卡类型
+    function selectBankCardType(el, type) {
+        document.querySelectorAll('.bank-type-btn').forEach(function(btn) { btn.classList.remove('active'); });
+        el.classList.add('active');
+        window._selectedBankCardType = type;
+    }
+
+    // 选择银行卡颜色
+    function selectBankCardColor(el, color) {
+        document.querySelectorAll('.bank-color-dot').forEach(function(dot) { dot.classList.remove('active'); });
+        el.classList.add('active');
+        window._selectedBankCardColor = color;
+    }
+
+    // 生成随机卡号（最后四位）
+    function _genCardNumber() {
+        var groups = [];
+        for (var i = 0; i < 4; i++) {
+            if (i < 3) {
+                groups.push('****');
+            } else {
+                groups.push(String(Math.floor(Math.random() * 9000) + 1000));
+            }
+        }
+        return groups.join(' ');
+    }
+
+    // 确认添加银行卡
+    function confirmAddBankCard() {
+        var name = document.getElementById('bank-card-name-input').value.trim();
+        var balance = document.getElementById('bank-card-balance-input').value.trim();
+        var type = window._selectedBankCardType || '储蓄卡';
+        var color = window._selectedBankCardColor || 'linear-gradient(135deg,#667eea,#764ba2)';
+
+        if (!name) {
+            document.getElementById('bank-card-name-input').focus();
+            return;
+        }
+
+        var balanceNum = parseFloat(balance) || 0;
+        var balanceStr = balanceNum.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        var cardNumber = _genCardNumber();
+
+        // 隐藏空状态提示
+        var emptyEl = document.getElementById('bank-card-empty');
+        if (emptyEl) emptyEl.style.display = 'none';
+
+        // 创建仿真银行卡 HTML
+        var cardId = 'bank-card-' + Date.now();
+        var cardHtml = '<div class="sim-bank-card" id="' + cardId + '" style="background:' + color + ';">' +
+            '<div class="sim-card-delete-btn" onclick="deleteBankCard(\'' + cardId + '\')">' +
+            '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+            '</div>' +
+            '<div class="sim-card-top">' +
+            '<div class="sim-card-bank-name">' + name + '</div>' +
+            '<div class="sim-card-type-badge">' + type + '</div>' +
+            '</div>' +
+            '<div class="sim-card-chip"></div>' +
+            '<div class="sim-card-number">' + cardNumber + '</div>' +
+            '<div class="sim-card-bottom">' +
+            '<div>' +
+            '<div class="sim-card-balance-label">当前余额</div>' +
+            '<div class="sim-card-balance-amount">¥ ' + balanceStr + '</div>' +
+            '</div>' +
+            '<div class="sim-card-logo">' +
+            '<div class="sim-card-logo-circle" style="background:#eb001b;"></div>' +
+            '<div class="sim-card-logo-circle" style="background:#f79e1b; margin-left:-8px;"></div>' +
+            '</div>' +
+            '</div>' +
+            '</div>';
+
+        var list = document.getElementById('bank-card-list');
+        var tempDiv = document.createElement('div');
+        tempDiv.innerHTML = cardHtml;
+        list.appendChild(tempDiv.firstChild);
+
+        closeAddBankCardModal();
+    }
+
+    // 删除银行卡
+    function deleteBankCard(cardId) {
+        var card = document.getElementById(cardId);
+        if (card) {
+            card.style.transition = 'opacity 0.25s, transform 0.25s';
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.9)';
+            setTimeout(function() {
+                card.remove();
+                // 如果没有卡了，显示空状态
+                var list = document.getElementById('bank-card-list');
+                var cards = list.querySelectorAll('.sim-bank-card');
+                if (cards.length === 0) {
+                    var emptyEl = document.getElementById('bank-card-empty');
+                    if (emptyEl) emptyEl.style.display = 'flex';
+                }
+            }, 250);
+        }
+    }
     function closeMaskPresets() {
         document.getElementById('mask-presets-app').style.display = 'none';
     }
@@ -1893,8 +2041,10 @@ document.getElementById('contact-edit-id').value = '';
         // 1. 立即收起面板
         hideChatExtPanel(); 
         
-        // 2. 状态检查
-        if (isReplying || !activeChatContact) return;
+        // 2. 状态检查（表情包发送不受 isReplying 限制，确保能触发自动回复）
+        if (!activeChatContact) return;
+        // 安全重置：防止 isReplying 被卡死导致表情包无法触发自动回复
+        isReplying = false;
         
         const container = document.getElementById('chat-msg-container');
         const myAvatar = activeChatContact.userAvatar || 'https://via.placeholder.com/100';
@@ -1941,8 +2091,8 @@ document.getElementById('contact-edit-id').value = '';
                 container.scrollTop = container.scrollHeight;
             });
 
-            // 8. 表情包发送完成后，自动触发角色回复
-            triggerRoleReply();
+            // 8. \u8868\u60c5\u5305\u53d1\u9001\u540e\u4e0d\u89e6\u53d1\u81ea\u52a8\u56de\u590d
+
 
         } catch (err) {
             console.error("发送表情消息失败", err);
@@ -2369,6 +2519,8 @@ ${langInstruction}
             bindMsgEvents();
             input.value = '';
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+            // 触发角色自动回复
+            triggerRoleReply();
         } catch (e) {
             console.error("保存消息失败", e);
         }
@@ -2601,6 +2753,8 @@ ${langInstruction}
                 container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
                 bindMsgEvents();
                 container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+                // 触发角色自动回复
+                triggerRoleReply();
             } catch (err) {
                 console.error("保存图片消息失败", err);
             }
@@ -2648,6 +2802,8 @@ ${langInstruction}
             container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
             bindMsgEvents();
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+            // 触发角色自动回复
+            triggerRoleReply();
         } catch (err) {
             console.error("发送表情消息失败", err);
         }
@@ -2692,6 +2848,8 @@ ${langInstruction}
             container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
             bindMsgEvents();
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+            // 触发角色自动回复
+            triggerRoleReply();
         } catch (e) {
             console.error("保存语音消息失败", e);
         }
@@ -2742,6 +2900,8 @@ ${langInstruction}
             container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
             bindMsgEvents();
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+            // 触发角色自动回复
+            triggerRoleReply();
         } catch (e) {
             console.error("保存定位消息失败", e);
         }
@@ -3119,6 +3279,52 @@ ${langInstruction}
             }
         }
                    }
+
+// ====== 免密支付功能 ======
+(function() {
+    var NO_PWD_KEY = 'no_pwd_pay_enabled';
+    var isNoPwdEnabled = false;
+
+    window.openNoPwdPayModal = async function() {
+        // 读取开关状态
+        try { isNoPwdEnabled = !!(await localforage.getItem(NO_PWD_KEY)); } catch(e) { isNoPwdEnabled = false; }
+        // 同步 Toggle UI
+        var toggle = document.getElementById('no-pwd-toggle');
+        var thumb = document.getElementById('no-pwd-toggle-thumb');
+        if (toggle && thumb) {
+            toggle.style.background = isNoPwdEnabled ? '#4cd964' : '#ddd';
+            thumb.style.left = isNoPwdEnabled ? '22px' : '2px';
+        }
+        var modal = document.getElementById('no-pwd-pay-modal');
+        var sheet = document.getElementById('no-pwd-pay-sheet');
+        modal.style.display = 'flex';
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                sheet.style.transform = 'translateY(0)';
+            });
+        });
+    };
+
+    window.closeNoPwdPayModal = function() {
+        var sheet = document.getElementById('no-pwd-pay-sheet');
+        var modal = document.getElementById('no-pwd-pay-modal');
+        sheet.style.transform = 'translateY(100%)';
+        setTimeout(function() {
+            modal.style.display = 'none';
+        }, 340);
+    };
+
+    window.toggleNoPwdPay = async function() {
+        isNoPwdEnabled = !isNoPwdEnabled;
+        try { await localforage.setItem(NO_PWD_KEY, isNoPwdEnabled); } catch(e) {}
+        var toggle = document.getElementById('no-pwd-toggle');
+        var thumb = document.getElementById('no-pwd-toggle-thumb');
+        if (toggle && thumb) {
+            toggle.style.background = isNoPwdEnabled ? '#4cd964' : '#ddd';
+            thumb.style.left = isNoPwdEnabled ? '22px' : '2px';
+        }
+    };
+})();
 
 // ====== 支付密码功能 ======
 (function() {

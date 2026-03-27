@@ -1214,3 +1214,196 @@ img {
 .pay-key-empty:active { background: transparent; }
 .pay-key-del { background: #efefef; }
 .pay-key-del svg { stroke: #555; }
+
+/* ====== 银行卡页面样式 ====== */
+.bank-type-btn {
+  padding: 7px 18px;
+  border-radius: 20px;
+  border: 1.5px solid #e0e0e0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #888;
+  cursor: pointer;
+  background: #f7f7f7;
+  transition: all 0.18s;
+  user-select: none;
+}
+.bank-type-btn.active {
+  background: linear-gradient(135deg,#667eea,#764ba2);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+}
+.bank-color-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2.5px solid transparent;
+  transition: all 0.18s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+.bank-color-dot.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 2.5px #667eea, 0 2px 8px rgba(0,0,0,0.18);
+  transform: scale(1.15);
+}
+
+/* 仿真银行卡样式 */
+.sim-bank-card {
+  width: 100%;
+  max-width: 340px;
+  height: 200px;
+  border-radius: 20px;
+  padding: 24px 26px 20px;
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.10);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.18s, box-shadow 0.18s;
+  align-self: center;
+}
+.sim-bank-card:active {
+  transform: scale(0.97);
+}
+.sim-bank-card::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+  pointer-events: none;
+}
+.sim-bank-card::after {
+  content: '';
+  position: absolute;
+  bottom: -50px;
+  left: -30px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.07);
+  pointer-events: none;
+}
+.sim-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: relative;
+  z-index: 1;
+}
+.sim-card-bank-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.18);
+}
+.sim-card-type-badge {
+  font-size: 11px;
+  color: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.18);
+  border-radius: 8px;
+  padding: 3px 9px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(4px);
+}
+.sim-card-chip {
+  width: 36px;
+  height: 28px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #f5d061 0%, #c8a84b 60%, #f5d061 100%);
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.sim-card-chip::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1.5px;
+  background: rgba(0,0,0,0.15);
+  transform: translateX(-50%);
+}
+.sim-card-chip::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  background: rgba(0,0,0,0.15);
+  transform: translateY(-50%);
+}
+.sim-card-number {
+  font-size: 15px;
+  color: rgba(255,255,255,0.92);
+  letter-spacing: 3px;
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.18);
+}
+.sim-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  position: relative;
+  z-index: 1;
+}
+.sim-card-balance-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 2px;
+  letter-spacing: 0.5px;
+}
+.sim-card-balance-amount {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.2);
+}
+.sim-card-logo {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.sim-card-logo-circle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  opacity: 0.85;
+}
+.sim-card-delete-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.35);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: background 0.15s;
+}
+.sim-card-delete-btn:active { background: rgba(220,50,50,0.7); }
+.bank-card-manage-mode .sim-card-delete-btn { display: flex; }

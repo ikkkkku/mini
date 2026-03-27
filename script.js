@@ -1,4 +1,4 @@
-const whitePixel = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+﻿const whitePixel = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 const imgDb = new Dexie("miniPhoneImagesDB");
 imgDb.version(1).stores({ images: 'id, src' });
 const appIconNames = ["小说", "日记", "购物", "论坛", "WeChat", "纪念日", "遇恋", "世界书", "占位1", "闲鱼", "查手机", "情侣空间", "占位2", "占位3", "占位4", "占位5", "主题", "设置"];
@@ -7,6 +7,9 @@ const mainIcons = document.querySelectorAll('.icon-img img, .dock-icon img');
     const menu = document.getElementById('menu-panel');
     const swiper = new Swiper('.mySwiper', { 
         loop: false,
+        resistanceRatio: 0, // 减少边缘回弹的计算阻力
+        observer: true,     // 开启 DOM 变动监听
+        observeParents: true,
         on: {
             touchStart: function() { menu.style.display = 'none'; },
             slideChange: function() { menu.style.display = 'none'; }
@@ -142,6 +145,11 @@ async function initThemeIcons() {
     }
 }
 window.addEventListener('DOMContentLoaded', async () => {
+        // 修复电脑端加载时闪烁/延伸：页面加载完成后再显示手机壳
+        const shell = document.querySelector('.phone-shell');
+        if (shell) {
+            requestAnimationFrame(() => { shell.style.opacity = '1'; });
+        }
         const textElements = document.querySelectorAll('.editable-text');
         for (let el of textElements) {
             const savedText = await localforage.getItem('miffy_text_' + el.id);
@@ -858,6 +866,229 @@ window.addEventListener('DOMContentLoaded', async () => {
             }
         }
     }
+    // ====== 表情包库功能逻辑 (核心持久化: Dexie.js + IndexedDB) ======
+    const emoDb = new Dexie("miniPhoneEmoDB");
+    emoDb.version(1).stores({
+        groups: 'id, name',
+        emoticons: '++id, groupId, desc, url'
+    });
+    
+    let currentEmoGroupId = 'default';
+    let emoManageMode = false;
+    let selectedEmoIds = new Set();
+
+    async function initEmoticonDB() {
+        const defaultGroup = await emoDb.groups.get('default');
+        if (!defaultGroup) {
+            await emoDb.groups.add({ id: 'default', name: '默认' });
+        }
+    }
+
+    async function openEmoticonApp() {
+        await initEmoticonDB();
+        document.getElementById('emoticon-app').style.display = 'flex';
+        emoManageMode = false;
+        document.getElementById('emoticon-manage-bar').style.display = 'none';
+        selectedEmoIds.clear();
+        await renderEmoGroups();
+    }
+
+    function closeEmoticonApp() {
+        document.getElementById('emoticon-app').style.display = 'none';
+    }
+
+    async function renderEmoGroups() {
+        const container = document.getElementById('emoticon-group-container');
+        container.innerHTML = '';
+        const groups = await emoDb.groups.toArray();
+        
+        const defaultGroup = groups.find(g => g.id === 'default');
+        const otherGroups = groups.filter(g => g.id !== 'default');
+        
+        const renderTab = (g) => {
+            const tab = document.createElement('div');
+            tab.className = `emo-group-tab ${g.id === currentEmoGroupId ? 'active' : ''}`;
+            tab.textContent = g.name;
+            // 非默认分组支持长按删除
+            if (g.id !== 'default') {
+                let timer;
+                tab.addEventListener('touchstart', () => {
+                    timer = setTimeout(() => {
+                        if (confirm(`确定要删除分组【${g.name}】及其下所有表情包吗？`)) {
+                            deleteEmoGroup(g.id);
+                        }
+                    }, 800);
+                }, {passive: true});
+                tab.addEventListener('touchend', () => clearTimeout(timer));
+                tab.addEventListener('touchmove', () => clearTimeout(timer));
+            }
+            tab.onclick = () => {
+                currentEmoGroupId = g.id;
+                renderEmoGroups();
+            };
+            container.appendChild(tab);
+        };
+        
+        if (defaultGroup) renderTab(defaultGroup);
+        otherGroups.forEach(renderTab);
+        
+        const addBtn = document.createElement('div');
+        addBtn.className = 'emo-group-add';
+        addBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+        addBtn.onclick = async () => {
+            const name = prompt('请输入新分组名称:');
+            if (name && name.trim()) {
+                const id = 'group_' + Date.now();
+                await emoDb.groups.add({ id, name: name.trim() });
+                currentEmoGroupId = id;
+                renderEmoGroups();
+            }
+        };
+        container.appendChild(addBtn);
+        
+        await renderEmoticons();
+    }
+
+    async function deleteEmoGroup(groupId) {
+        await emoDb.groups.delete(groupId);
+        const emos = await emoDb.emoticons.where('groupId').equals(groupId).toArray();
+        const emoIds = emos.map(e => e.id);
+        await emoDb.emoticons.bulkDelete(emoIds);
+        if (currentEmoGroupId === groupId) currentEmoGroupId = 'default';
+        renderEmoGroups();
+    }
+
+    async function renderEmoticons() {
+        const list = document.getElementById('emoticon-list-container');
+        list.innerHTML = '';
+        const emos = await emoDb.emoticons.where('groupId').equals(currentEmoGroupId).toArray();
+        
+        if (emos.length === 0) {
+            list.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: #bbb; font-size: 13px; margin-top: 50px;">该分组暂无表情包</div>';
+            return;
+        }
+        
+        emos.reverse().forEach(e => {
+            const item = document.createElement('div');
+            item.className = `emo-item ${emoManageMode ? 'manage-mode' : ''}`;
+            const isChecked = selectedEmoIds.has(e.id) ? 'checked' : '';
+            
+            item.innerHTML = `
+                <div class="emo-checkbox ${isChecked}"></div>
+                <img src="${e.url}" loading="lazy" decoding="async">
+                <div class="emo-item-desc">${e.desc}</div>
+            `;
+            
+            item.onclick = () => {
+                if (emoManageMode) {
+                    if (selectedEmoIds.has(e.id)) {
+                        selectedEmoIds.delete(e.id);
+                    } else {
+                        selectedEmoIds.add(e.id);
+                    }
+                    renderEmoticons();
+                }
+            };
+            list.appendChild(item);
+        });
+    }
+
+    function toggleEmoticonManageMode() {
+        emoManageMode = !emoManageMode;
+        selectedEmoIds.clear();
+        document.getElementById('emoticon-manage-bar').style.display = emoManageMode ? 'flex' : 'none';
+        renderEmoticons();
+    }
+
+    async function selectAllEmoticons() {
+        const emos = await emoDb.emoticons.where('groupId').equals(currentEmoGroupId).toArray();
+        if (selectedEmoIds.size === emos.length) {
+            selectedEmoIds.clear();
+        } else {
+            emos.forEach(e => selectedEmoIds.add(e.id));
+        }
+        renderEmoticons();
+    }
+
+    async function deleteSelectedEmoticons() {
+        if (selectedEmoIds.size === 0) return;
+        if (confirm(`确定删除选中的 ${selectedEmoIds.size} 个表情包吗？`)) {
+            await emoDb.emoticons.bulkDelete(Array.from(selectedEmoIds));
+            selectedEmoIds.clear();
+            renderEmoticons();
+        }
+    }
+
+    async function moveSelectedEmoticons() {
+        if (selectedEmoIds.size === 0) return;
+        const select = document.getElementById('emoticon-move-select');
+        select.innerHTML = '';
+        const groups = await emoDb.groups.toArray();
+        groups.forEach(g => {
+            if (g.id !== currentEmoGroupId) {
+                select.innerHTML += `<option value="${g.id}">${g.name}</option>`;
+            }
+        });
+        if (select.options.length === 0) {
+            alert('没有其他分组可供移动');
+            return;
+        }
+        document.getElementById('emoticon-move-modal').style.display = 'flex';
+    }
+
+    function closeMoveEmoticonModal() {
+        document.getElementById('emoticon-move-modal').style.display = 'none';
+    }
+
+    async function confirmMoveEmoticons() {
+        const targetGroupId = document.getElementById('emoticon-move-select').value;
+        if (!targetGroupId) return;
+        const ids = Array.from(selectedEmoIds);
+        for (let id of ids) {
+            await emoDb.emoticons.update(id, { groupId: targetGroupId });
+        }
+        selectedEmoIds.clear();
+        closeMoveEmoticonModal();
+        renderEmoticons();
+        alert('移动成功');
+    }
+
+    function openAddEmoticonModal() {
+        document.getElementById('emoticon-batch-input').value = '';
+        document.getElementById('emoticon-add-modal').style.display = 'flex';
+    }
+    function closeAddEmoticonModal() {
+        document.getElementById('emoticon-add-modal').style.display = 'none';
+    }
+    
+    async function saveBatchEmoticons() {
+        const input = document.getElementById('emoticon-batch-input').value.trim();
+        if (!input) return;
+        
+        const lines = input.split('\n');
+        let addedCount = 0;
+        for (let line of lines) {
+            line = line.trim();
+            if (!line) continue;
+            
+            // 兼容 "描述 URL" 和 "描述：URL" 格式
+            const match = line.match(/^(.+?)(?:\s+|:|：)(http.+)$/i);
+            if (match) {
+                const desc = match[1].trim();
+                const url = match[2].trim();
+                await emoDb.emoticons.add({
+                    groupId: currentEmoGroupId,
+                    desc: desc,
+                    url: url
+                });
+                addedCount++;
+            }
+        }
+        
+        closeAddEmoticonModal();
+        renderEmoticons();
+        alert(`成功添加 ${addedCount} 个表情包`);
+    }
     // ====== 联系人功能逻辑 (核心持久化: Dexie.js + IndexedDB) ======
     const contactDb = new Dexie("miniPhoneContactDB");
     contactDb.version(1).stores({ contacts: 'id' });
@@ -878,7 +1109,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             contacts.forEach(c => {
                 const item = document.createElement('div');
                 item.style.cssText = 'background: #fff; border-radius: 16px; padding: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); display: flex; align-items: center; justify-content: space-between;';
-                let avatarHtml = c.roleAvatar ? `<img src="${c.roleAvatar}" style="width: 100%; height: 100%; object-fit: cover;">` : `<span style="color: #ccc; font-size: 12px;">无</span>`;
+                let avatarHtml = c.roleAvatar ? `<img src="${c.roleAvatar}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy" decoding="async">` : `<span style="color: #ccc; font-size: 12px;">无</span>`;
                 item.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 12px; flex: 1; overflow: hidden;">
                         <div style="width: 45px; height: 45px; border-radius: 50%; background: #fdfdfd; border: 1px solid #f0f0f0; overflow: hidden; flex-shrink: 0; display: flex; justify-content: center; align-items: center;">
@@ -1127,190 +1358,6 @@ document.getElementById('contact-edit-id').value = '';
             }
         }
     }
-// ====== 表情包库功能逻辑 ======
-    const emoDb = new Dexie("miniPhoneEmoticonDB");
-    emoDb.version(1).stores({ 
-        groups: '++id, name', // id为自增主键
-        emoticons: '++id, groupId, desc, url' 
-    });
-    let currentEmoGroupId = 1;
-    let isEmoManageMode = false;
-    async function initEmoticonDB() {
-        const defaultGroup = await emoDb.groups.get(1);
-        if (!defaultGroup) {
-            await emoDb.groups.add({ id: 1, name: '默认' });
-        }
-    }
-    async function openEmoticonApp() {
-        await initEmoticonDB();
-        document.getElementById('emoticon-app').style.display = 'flex';
-        isEmoManageMode = false;
-        document.getElementById('emoticon-grid-container').classList.remove('manage-mode');
-        document.getElementById('emoticon-manage-btn').textContent = '管理';
-        document.getElementById('emoticon-manage-btn').style.color = '#555';
-        document.getElementById('emoticon-manage-btn').style.fontWeight = '500';
-        await renderEmoGroups();
-    }
-    function closeEmoticonApp() {
-        document.getElementById('emoticon-app').style.display = 'none';
-    }
-    function toggleEmoticonManage() {
-        isEmoManageMode = !isEmoManageMode;
-        const grid = document.getElementById('emoticon-grid-container');
-        const btn = document.getElementById('emoticon-manage-btn');
-        if (isEmoManageMode) {
-            grid.classList.add('manage-mode');
-            btn.textContent = '完成';
-            btn.style.color = '#333';
-            btn.style.fontWeight = '600';
-        } else {
-            grid.classList.remove('manage-mode');
-            btn.textContent = '管理';
-            btn.style.color = '#555';
-            btn.style.fontWeight = '500';
-        }
-    }
-    async function renderEmoGroups() {
-        const container = document.getElementById('emoticon-group-list');
-        container.innerHTML = '';
-        try {
-            const groups = await emoDb.groups.toArray();
-            if(!groups.find(g => g.id === currentEmoGroupId) && groups.length > 0) {
-                currentEmoGroupId = groups[0].id;
-            }
-            groups.forEach(g => {
-                const tag = document.createElement('div');
-                tag.className = `emoticon-group-tag ${g.id === currentEmoGroupId ? 'active' : ''}`;
-                tag.onclick = () => { currentEmoGroupId = g.id; renderEmoGroups(); };
-                let delHtml = '';
-                if (g.name !== '默认') {
-                    delHtml = `<span class="del-btn" onclick="event.stopPropagation(); deleteEmoGroup(${g.id}, '${g.name}')">×</span>`;
-                }
-                tag.innerHTML = `<span>${g.name}</span>${delHtml}`;
-                container.appendChild(tag);
-            });
-            const addBtn = document.createElement('div');
-            addBtn.className = 'emoticon-add-group';
-            addBtn.innerHTML = '+';
-            addBtn.onclick = addEmoGroup;
-            container.appendChild(addBtn);
-            await renderEmoticons();
-        } catch (e) { console.error(e); }
-    }
-    async function addEmoGroup() {
-        const name = prompt('请输入新分组名称:');
-        if (name && name.trim() !== '') {
-            try {
-                await emoDb.groups.add({ name: name.trim() });
-                await renderEmoGroups();
-            } catch (e) { alert('添加分组失败'); }
-        }
-    }
-    async function deleteEmoGroup(id, name) {
-        if (confirm(`确定要删除分组【${name}】及其中所有表情包吗？`)) {
-            try {
-                await emoDb.emoticons.where('groupId').equals(id).delete();
-                await emoDb.groups.delete(id);
-                await renderEmoGroups();
-            } catch (e) { alert('删除失败'); }
-        }
-    }
-    async function renderEmoticons() {
-        const grid = document.getElementById('emoticon-grid-container');
-        grid.innerHTML = '';
-        try {
-            const emos = await emoDb.emoticons.where('groupId').equals(currentEmoGroupId).toArray();
-            if (emos.length === 0) {
-                grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: #bbb; font-size: 13px; margin-top: 40px; letter-spacing: 0.5px;">当前分组暂无表情包</div>';
-                return;
-            }
-            // 倒序显示，新的排在前面
-            emos.reverse().forEach(e => {
-                const item = document.createElement('div');
-                item.className = 'chat-emoji-item';
-                // 修改：在图片下方追加 span 标签用于显示表情包描述
-                item.innerHTML = `<img src="${e.url}" alt="${e.desc}"><span>${e.desc}</span>`;
-                item.onclick = () => sendChatEmojiMessage(e.url, e.desc);
-                grid.appendChild(item);
-            });
-        } catch (e) { console.error(e); }
-    }
-    async function deleteEmoticon(id) {
-        if (!isEmoManageMode) return;
-        if (confirm('确定要删除这个表情包吗？')) {
-            try {
-                await emoDb.emoticons.delete(id);
-                await renderEmoticons();
-            } catch (e) { alert('删除失败'); }
-        }
-    }
-    async function openEmoticonEditor() {
-        const select = document.getElementById('emoticon-select-group');
-        select.innerHTML = '';
-        try {
-            const groups = await emoDb.groups.toArray();
-            groups.forEach(g => {
-                const opt = document.createElement('option');
-                opt.value = g.id;
-                opt.textContent = g.name;
-                if (g.id === currentEmoGroupId) opt.selected = true;
-                select.appendChild(opt);
-            });
-        } catch (e) { console.error(e); }
-        document.getElementById('emoticon-batch-input').value = '';
-        document.getElementById('emoticon-editor-modal').style.display = 'flex';
-    }
-    function closeEmoticonEditor() {
-        document.getElementById('emoticon-editor-modal').style.display = 'none';
-    }
-    async function saveEmoticons() {
-        const groupId = parseInt(document.getElementById('emoticon-select-group').value);
-        const inputStr = document.getElementById('emoticon-batch-input').value.trim();
-        if (!inputStr) {
-            alert('请输入表情包数据');
-            return;
-        }
-        const lines = inputStr.split('\n');
-        const toAdd = [];
-        let errorCount = 0;
-        lines.forEach(line => {
-            const str = line.trim();
-            if (!str) return;
-            // 兼容模式解析：直接寻找真正的链接起始位置 (http 或 data:image)
-            const urlMatch = str.match(/(http|data:image)/);
-            if (urlMatch) {
-                const sepIndex = urlMatch.index;
-                // 描述是链接前面的部分，去除末尾可能存在的冒号、全角冒号和空格
-                const desc = str.substring(0, sepIndex).replace(/[:：\s]+$/, '').trim();
-                const url = str.substring(sepIndex).trim();
-                // 确保描述和URL都不为空
-                if (desc && url) {
-                    toAdd.push({ groupId, desc, url });
-                } else {
-                    errorCount++;
-                }
-            } else {
-                errorCount++;
-            }
-        });
-        if (toAdd.length > 0) {
-            try {
-                await emoDb.emoticons.bulkAdd(toAdd);
-                if (errorCount > 0) {
-                    alert(`成功添加 ${toAdd.length} 个表情包，有 ${errorCount} 行格式不正确被忽略。`);
-                }
-                closeEmoticonEditor();
-                if (groupId === currentEmoGroupId) {
-                    await renderEmoticons();
-                } else {
-                    currentEmoGroupId = groupId;
-                    await renderEmoGroups();
-                }
-            } catch (e) { alert('保存失败'); console.error(e); }
-        } else {
-            alert('未能解析出有效的表情包数据。\n格式支持：\n描述:URL\n描述：URL\n描述 URL');
-        }
-    }
     // ====== 聊天列表功能逻辑 ======
     // 新增：获取 AM/PM 格式时间
     function getAmPmTime() {
@@ -1395,6 +1442,10 @@ document.getElementById('contact-edit-id').value = '';
             }
             container.innerHTML = ''; // 清空列表
             chats.reverse(); // 倒序显示最新创建的
+            
+            // 性能优化：创建文档碎片（存在于内存中）
+            const fragment = document.createDocumentFragment();
+            
             for (let chat of chats) {
                 const contact = await contactDb.contacts.get(chat.contactId);
                 if (!contact) continue; 
@@ -1415,7 +1466,10 @@ document.getElementById('contact-edit-id').value = '';
                 item.onmouseleave = () => { item.style.transform = 'scale(1)'; };
                 // 新增：点击进入聊天页面
                 item.onclick = () => enterChatWindow(contact.id); 
-                let avatarHtml = contact.roleAvatar ? `<img src="${contact.roleAvatar}" style="width: 100%; height: 100%; object-fit: cover;">` : `<span style="color: #ccc; font-size: 12px;">无</span>`;
+                
+                // 性能优化：加上了 loading="lazy" decoding="async"
+                let avatarHtml = contact.roleAvatar ? `<img src="${contact.roleAvatar}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy" decoding="async">` : `<span style="color: #ccc; font-size: 12px;">无</span>`;
+                
                 item.innerHTML = `
                     <div style="width: 45px; height: 45px; border-radius: 50%; background: #fdfdfd; border: 1px solid #f0f0f0; overflow: hidden; flex-shrink: 0; display: flex; justify-content: center; align-items: center;">
                         ${avatarHtml}
@@ -1428,8 +1482,14 @@ document.getElementById('contact-edit-id').value = '';
                         <span style="font-size: 12px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${lastMsgText}</span>
                     </div>
                 `;
-container.appendChild(item);
+                
+                // 性能优化：将组装好的 item 放入内存碎片，不直接操作真实 DOM
+                fragment.appendChild(item);
             }
+            
+            // 循环结束后，一次性将内存中的列表推送给真实 DOM（只引起一次页面重绘）
+            container.appendChild(fragment);
+            
             if (container.innerHTML === '') {
                 container.innerHTML = '<div id="no-msg-tip" style="color:#bbb; font-size:13px; margin-top:100px; text-align:center;">暂无新消息</div>';
             }
@@ -1437,6 +1497,7 @@ container.appendChild(item);
             console.error("加载聊天列表失败", e);
         }
     }
+
     // 初始化渲染联系人列表与聊天列表
     document.addEventListener('DOMContentLoaded', () => {
         renderContacts();
@@ -1677,7 +1738,8 @@ container.appendChild(item);
         return `
             <div class="chat-msg-row ${msgClass}" data-id="${msg.id}" data-sender="${msg.sender}">
                 <div class="msg-checkbox ${isChecked}" onclick="toggleMsgCheck(${msg.id})"></div>
-                <div class="chat-msg-avatar"><img src="${avatar}"></div>
+                <div class="chat-msg-avatar"><img src="${avatar}" loading="lazy" decoding="async"></div>
+
                 <div class="msg-bubble-wrapper">
                     <div class="chat-msg-content msg-content-touch" style="${(isCameraMsg || isImageMsg || isEmoticonMsg || isLocationMsg) ? 'background:transparent; box-shadow:none; padding:0;' : ''}">
                         ${quoteHtml}
@@ -1702,12 +1764,21 @@ container.appendChild(item);
             const messages = await chatListDb.messages.where('contactId').equals(contactId).toArray();
             const myAvatar = contact.userAvatar || 'https://via.placeholder.com/100';
             const roleAvatar = contact.roleAvatar || 'https://via.placeholder.com/100';
+            
+            // 性能优化：拼接所有 HTML 后一次性插入，避免多次重绘
+            let htmlStr = '';
             messages.forEach(msg => {
-                container.insertAdjacentHTML('beforeend', generateMsgHtml(msg, myAvatar, roleAvatar));
+                htmlStr += generateMsgHtml(msg, myAvatar, roleAvatar);
             });
+            container.innerHTML = htmlStr;
+            
             bindMsgEvents();
-            setTimeout(() => { container.scrollTop = container.scrollHeight; }, 10);
-            setTimeout(() => { container.scrollTop = container.scrollHeight; }, 320);
+            
+            // 性能优化：使用 requestAnimationFrame 保证渲染完成后再滚动
+            requestAnimationFrame(() => {
+                container.scrollTop = container.scrollHeight;
+            });
+            setTimeout(() => { container.scrollTop = container.scrollHeight; }, 300);
         } catch (e) {
             console.error("加载历史消息失败", e);
         }
@@ -1717,55 +1788,55 @@ container.appendChild(item);
         exitMultiSelectMode(); // 重置多选状态
         cancelQuote(); // 重置引用状态
     }
-    // 隐藏菜单面板的通用函数
+
+    // 隐藏聊天扩展面板与表情面板
     function hideChatExtPanel() {
-        const panel = document.getElementById('chat-ext-panel');
-        const btn = document.getElementById('chat-ext-btn');
-        if (panel && btn) {
-            panel.classList.remove('show');
-            btn.classList.remove('active');
-        }
-        const emojiPanel = document.getElementById('chat-emoji-panel');
-        const emojiBtn = document.getElementById('chat-emoji-btn');
-        if (emojiPanel && emojiBtn) {
-            emojiPanel.classList.remove('show');
-            emojiBtn.classList.remove('active');
-        }
-    }
-    // 菜单面板展开与收起逻辑 (触发动画)
-    function toggleChatExtPanel() {
-        const panel = document.getElementById('chat-ext-panel');
-        const btn = document.getElementById('chat-ext-btn');
-        // 互斥：强制关闭表情面板
-        const emojiPanel = document.getElementById('chat-emoji-panel');
-        const emojiBtn = document.getElementById('chat-emoji-btn');
-        if (emojiPanel) emojiPanel.classList.remove('show');
-        if (emojiBtn) emojiBtn.classList.remove('active');
-        if (panel.classList.contains('show')) {
-            panel.classList.remove('show');
-            btn.classList.remove('active');
-        } else {
-            panel.classList.add('show');
-            btn.classList.add('active');
-        }
-    }
-    // ====== 悬浮表情面板核心逻辑 ======
-    let currentChatEmojiGroupId = null;
-    async function toggleChatEmojiPanel() {
-        const emojiPanel = document.getElementById('chat-emoji-panel');
-        const emojiBtn = document.getElementById('chat-emoji-btn');
-        // 互斥：强制关闭加号扩展面板
         const extPanel = document.getElementById('chat-ext-panel');
         const extBtn = document.getElementById('chat-ext-btn');
         if (extPanel) extPanel.classList.remove('show');
         if (extBtn) extBtn.classList.remove('active');
+        
+        const emojiPanel = document.getElementById('chat-emoji-panel');
+        const emojiBtn = document.getElementById('chat-emoji-btn');
+        if (emojiPanel) emojiPanel.classList.remove('show');
+        if (emojiBtn) emojiBtn.classList.remove('active');
+    }
+
+    function toggleChatExtPanel() {
+        const extPanel = document.getElementById('chat-ext-panel');
+        const extBtn = document.getElementById('chat-ext-btn');
+        const emojiPanel = document.getElementById('chat-emoji-panel');
+        const emojiBtn = document.getElementById('chat-emoji-btn');
+        // 先收起表情面板
+        if (emojiPanel) { emojiPanel.classList.remove('show'); }
+        if (emojiBtn) { emojiBtn.classList.remove('active'); }
+        if (!extPanel) return;
+        if (extPanel.classList.contains('show')) {
+            extPanel.classList.remove('show');
+            if (extBtn) extBtn.classList.remove('active');
+        } else {
+            extPanel.classList.add('show');
+            if (extBtn) extBtn.classList.add('active');
+        }
+    }
+
+    let currentChatEmojiGroupId = null;
+    async function toggleChatEmojiPanel() {
+        const emojiPanel = document.getElementById('chat-emoji-panel');
+        const emojiBtn = document.getElementById('chat-emoji-btn');
+        const extPanel = document.getElementById('chat-ext-panel');
+        const extBtn = document.getElementById('chat-ext-btn');
+        // 先收起扩展面板
+        if (extPanel) { extPanel.classList.remove('show'); }
+        if (extBtn) { extBtn.classList.remove('active'); }
+        if (!emojiPanel) return;
         if (emojiPanel.classList.contains('show')) {
             emojiPanel.classList.remove('show');
-            emojiBtn.classList.remove('active');
+            if (emojiBtn) emojiBtn.classList.remove('active');
         } else {
             await initEmoticonDB();
             emojiPanel.classList.add('show');
-            emojiBtn.classList.add('active');
+            if (emojiBtn) emojiBtn.classList.add('active');
             await loadChatEmojiGroups();
         }
     }
@@ -1808,37 +1879,71 @@ container.appendChild(item);
                 const item = document.createElement('div');
                 item.className = 'chat-emoji-item';
                 item.innerHTML = `<img src="${e.url}" alt="${e.desc}" loading="lazy" decoding="async"><span>${e.desc}</span>`;
-                item.onclick = () => sendChatEmojiMessage(e.url, e.desc);
+                // 确保点击时直接调用发送逻辑
+                item.onclick = (event) => {
+                    event.stopPropagation();
+                    sendChatEmojiMessage(e.url, e.desc);
+                };
                 grid.appendChild(item);
             });
+
         } catch(e) { console.error("加载表情失败", e); }
     }
     async function sendChatEmojiMessage(url, desc) {
-        hideChatExtPanel(); // 发送后自动关闭面板
+        // 1. 立即收起面板
+        hideChatExtPanel(); 
+        
+        // 2. 状态检查
         if (isReplying || !activeChatContact) return;
+        
         const container = document.getElementById('chat-msg-container');
         const myAvatar = activeChatContact.userAvatar || 'https://via.placeholder.com/100';
         const roleAvatar = activeChatContact.roleAvatar || 'https://via.placeholder.com/100';
         const timeStr = getAmPmTime();
-        // 严格遵守表情包 JSON 格式
-        const content = JSON.stringify({ type: "emoticon", desc: desc, content: url });
+        
+        // 3. 构建符合 generateMsgHtml 逻辑的 JSON 字符串
+        const emoticonContent = JSON.stringify({ 
+            type: "emoticon", 
+            desc: desc, 
+            content: url 
+        });
+
         try {
+            // 4. 存入 IndexedDB 聊天记录
             const newMsgId = await chatListDb.messages.add({
                 contactId: activeChatContact.id,
                 sender: 'me',
-                content: content,
+                content: emoticonContent,
                 timeStr: timeStr,
                 quoteText: ''
             });
+
+            // 5. 更新聊天列表最后一条消息时间
             const chat = await chatListDb.chats.where('contactId').equals(activeChatContact.id).first();
             if (chat) {
                 await chatListDb.chats.update(chat.id, { lastTime: timeStr });
                 renderChatList(); 
             }
-            const msgObj = { id: newMsgId, sender: 'me', content: content, timeStr: timeStr, quoteText: '' };
+
+            // 6. UI 实时渲染消息气泡
+            const msgObj = { 
+                id: newMsgId, 
+                sender: 'me', 
+                content: emoticonContent, 
+                timeStr: timeStr, 
+                quoteText: '' 
+            };
             container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
+            
+            // 7. 重新绑定长按事件并滚动到底部
             bindMsgEvents();
-            container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+            requestAnimationFrame(() => {
+                container.scrollTop = container.scrollHeight;
+            });
+
+            // 8. 表情包发送完成后，自动触发角色回复
+            triggerRoleReply();
+
         } catch (err) {
             console.error("发送表情消息失败", err);
         }
@@ -2080,14 +2185,13 @@ ${langInstruction}
                     }
                 } catch(e) {}
                 if (isImage) {
+                    // 修复 403：不再发送 Base64 图片实体，改为文字描述，确保所有模型兼容
                     messages.push({
                         role: msg.sender === 'me' ? 'user' : 'assistant',
-                        content: [
-                            { type: "text", text: "发送了一张图片，请根据图片内容进行真实的对话回复。" },
-                            { type: "image_url", image_url: { url: imageBase64 } }
-                        ]
+                        content: `[用户发送了一张图片，描述为：此图片由于安全策略仅作本地展示，请根据语境和之前的交流继续对话]`
                     });
                 } else if (isEmoticon) {
+
                     messages.push({
                         role: msg.sender === 'me' ? 'user' : 'assistant',
                         content: `[发送了一个表情包，描述为：${emoticonDesc}]`
@@ -2108,7 +2212,8 @@ ${langInstruction}
                     });
                 }
             });
-            const endpoint = apiUrl.endsWith('/v1') ? `${apiUrl}/chat/completions` : `${apiUrl}/v1/chat/completions`;
+        const cleanApiUrl = apiUrl.replace(/\/+$/, '').replace(/\/v1$/, '');
+        const endpoint = `${cleanApiUrl}/v1/chat/completions`;
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
@@ -2128,14 +2233,23 @@ ${langInstruction}
             const replyText = data.choices[0].message.content.trim();
             let replyArr = [];
             try {
-                // 过滤可能存在的 markdown 代码块包裹
-                const cleanText = replyText.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+                let cleanText = replyText;
+                // 寻找数组的起始和结束括号
+                const firstBracket = cleanText.indexOf('[');
+                const lastBracket = cleanText.lastIndexOf(']');
+                if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+                    cleanText = cleanText.substring(firstBracket, lastBracket + 1);
+                } else {
+                    // 兜底正则清理
+                    cleanText = cleanText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+                }
                 replyArr = JSON.parse(cleanText);
                 if (!Array.isArray(replyArr)) throw new Error("返回的不是JSON数组");
             } catch (e) {
                 console.warn("JSON解析失败，尝试按换行拆分兜底处理", e);
                 replyArr = replyText.split('\n').filter(t => t.trim()).map(t => ({ type: 'text', content: t.trim() }));
             }
+
                         // 逐条渲染回复，每条强制间隔 1.8s
             for (let i = 0; i < replyArr.length; i++) {
                 const msgObj = replyArr[i];
@@ -2280,10 +2394,15 @@ ${langInstruction}
         if (!row) return;
         const msgId = parseInt(row.getAttribute('data-id'));
         const sender = row.getAttribute('data-sender');
+        
+        // 新增：清除可能残留的定时器，防止冲突
+        if (longPressTimer) clearTimeout(longPressTimer);
+        
         longPressTimer = setTimeout(() => {
             showMsgActionPanel(e.target.closest('.msg-content-touch'), msgId, sender);
         }, 500);
     }
+
     function handleTouchEnd() { clearTimeout(longPressTimer); }
     function handleTouchMove() { clearTimeout(longPressTimer); }
     function handleContextMenu(e) {
@@ -2722,10 +2841,16 @@ ${langInstruction}
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                resolve(canvas.toDataURL('image/jpeg', quality));
+                
+                // 判断原图格式，如果是 png 或 gif，则输出 png 以保留透明背景
+                const isTransparent = base64Str.startsWith('data:image/png') || base64Str.startsWith('data:image/gif');
+                const outType = isTransparent ? 'image/png' : 'image/jpeg';
+                // 注意：png 格式忽略 quality 参数，但能保证不黑底
+                resolve(canvas.toDataURL(outType, isTransparent ? undefined : quality));
             };
             img.onerror = () => resolve(base64Str);
             img.src = base64Str;
+
         });
     }
     // 压缩数据库中的所有图片数据
@@ -2874,14 +2999,15 @@ ${langInstruction}
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = getExportFileName(); // 例如: mini-2026-02-06.json
+            a.download = getExportFileName(); 
             document.body.appendChild(a);
             a.click();
-            // 延迟清理，防止某些手机浏览器还没开始下载就被销毁
+            // 延迟清理，给手机端预留充足的文件写入和弹窗唤起时间
             setTimeout(() => {
-                document.body.removeChild(a);
+                if (document.body.contains(a)) document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-            }, 500);
+            }, 10000); // 改为 10000 毫秒
+
         } catch (err) {
             console.error("导出过程中发生错误:", err);
             alert("导出失败: " + err.message);
@@ -2992,4 +3118,147 @@ ${langInstruction}
                 }
             }
         }
-}
+                   }
+
+// ====== 支付密码功能 ======
+(function() {
+  var PAY_PWD_KEY = 'pay_password';
+  var _payInput = '';
+  var _payStep = 'check'; // 'check' | 'set' | 'confirm'
+  var _payFirst = '';
+
+  function updateBoxes() {
+    for (var i = 0; i < 6; i++) {
+      var box = document.getElementById('ppb' + i);
+      if (!box) continue;
+      box.innerHTML = i < _payInput.length ? '<span style="width:10px;height:10px;border-radius:50%;background:#333;display:inline-block;"></span>' : '';
+      box.className = 'pay-pwd-box' + (i < _payInput.length ? ' filled' : '') + (i === _payInput.length ? ' active' : '');
+    }
+  }
+
+  window.openPayPwd = async function() {
+    _payInput = '';
+    _payFirst = '';
+    var stored = null;
+    try { stored = await localforage.getItem(PAY_PWD_KEY); } catch(e) {}
+    if (stored) {
+      _payStep = 'check';
+      document.getElementById('pay-pwd-title').textContent = '请输入支付密码';
+      document.getElementById('pay-forgot-link').style.display = 'block';
+    } else {
+      _payStep = 'set';
+      document.getElementById('pay-pwd-title').textContent = '设置支付密码';
+      document.getElementById('pay-forgot-link').style.display = 'none';
+    }
+    updateBoxes();
+    var overlay = document.getElementById('pay-pwd-overlay');
+    var sheet = document.getElementById('pay-pwd-sheet');
+    overlay.style.display = 'block';
+    sheet.style.display = 'block';
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        sheet.style.transform = 'translateY(0)';
+      });
+    });
+  };
+
+  window.closePayPwd = function() {
+    var sheet = document.getElementById('pay-pwd-sheet');
+    var overlay = document.getElementById('pay-pwd-overlay');
+    sheet.style.transform = 'translateY(100%)';
+    setTimeout(function() {
+      sheet.style.display = 'none';
+      overlay.style.display = 'none';
+    }, 320);
+    _payInput = '';
+  };
+
+  window.payKeyInput = async function(digit) {
+    if (_payInput.length >= 6) return;
+    _payInput += digit;
+    updateBoxes();
+    if (_payInput.length === 6) {
+      await handlePayComplete();
+    }
+  };
+
+  window.payKeyDel = function() {
+    if (_payInput.length > 0) {
+      _payInput = _payInput.slice(0, -1);
+      updateBoxes();
+    }
+  };
+
+  async function handlePayComplete() {
+    var stored = null;
+    try { stored = await localforage.getItem(PAY_PWD_KEY); } catch(e) {}
+    if (_payStep === 'check') {
+      if (_payInput === stored) {
+        closePayPwd();
+        setTimeout(function() { showToast('验证成功 '); }, 350);
+      } else {
+        document.getElementById('pay-pwd-title').textContent = '密码错误，请重试';
+        setTimeout(function() {
+          _payInput = '';
+          document.getElementById('pay-pwd-title').textContent = '请输入支付密码';
+          updateBoxes();
+        }, 600);
+        shakeBoxes();
+      }
+    } else if (_payStep === 'set') {
+      _payFirst = _payInput;
+      _payInput = '';
+      _payStep = 'confirm';
+      document.getElementById('pay-pwd-title').textContent = '再次确认密码';
+      updateBoxes();
+    } else if (_payStep === 'confirm') {
+      if (_payInput === _payFirst) {
+        try { await localforage.setItem(PAY_PWD_KEY, _payInput); } catch(e) {}
+        closePayPwd();
+        setTimeout(function() { showToast('支付密码设置成功 '); }, 350);
+      } else {
+        document.getElementById('pay-pwd-title').textContent = '两次密码不一致，重新设置';
+        setTimeout(function() {
+          _payInput = ''; _payFirst = ''; _payStep = 'set';
+          document.getElementById('pay-pwd-title').textContent = '设置支付密码';
+          updateBoxes();
+        }, 700);
+        shakeBoxes();
+      }
+    }
+  }
+
+  function shakeBoxes() {
+    var wrap = document.querySelector('#pay-pwd-sheet .pay-pwd-box')?.parentElement;
+    if (!wrap) return;
+    wrap.style.animation = 'none';
+    wrap.style.transition = 'transform 0.08s';
+    var seq = [6, -6, 5, -5, 3, 0];
+    var i = 0;
+    var t = setInterval(function() {
+      wrap.style.transform = 'translateX(' + seq[i] + 'px)';
+      i++;
+      if (i >= seq.length) { clearInterval(t); wrap.style.transform = ''; }
+    }, 60);
+  }
+
+  window.forgotPayPwd = async function() {
+    if (confirm('确认重置支付密码？')) {
+      try { await localforage.removeItem(PAY_PWD_KEY); } catch(e) {}
+      _payInput = ''; _payFirst = ''; _payStep = 'set';
+      document.getElementById('pay-pwd-title').textContent = '设置新支付密码';
+      document.getElementById('pay-forgot-link').style.display = 'none';
+      updateBoxes();
+    }
+  };
+
+  function showToast(msg) {
+    if (typeof window.showToast === 'function' && window.showToast !== showToast) { window.showToast(msg); return; }
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:absolute;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.65);color:#fff;padding:8px 18px;border-radius:20px;font-size:13px;z-index:999;pointer-events:none;white-space:nowrap;';
+    var screen = document.querySelector('.phone-screen');
+    if (screen) screen.appendChild(t);
+    setTimeout(function() { t.remove(); }, 2000);
+  }
+})();

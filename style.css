@@ -1,4 +1,4 @@
-        :root {
+﻿        :root {
             --widget-bg: rgba(255, 255, 255, 0.75);
             --text-main: #333;
             --text-sub: #999;
@@ -6,9 +6,74 @@
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; -webkit-tap-highlight-color: transparent; }
         body, html { 
-    width: 100%; height: 100%; overflow: hidden; background-color: #fff; 
-    overscroll-behavior: none;
-}
+            width: 100%; height: 100%; overflow: hidden; background-color: #1a1a1a;
+            overscroll-behavior: none;
+        }
+
+        /* ====== 电脑端：固定 iPhone 15 尺寸居中展示 ====== */
+        @media (min-width: 500px) {
+            body {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                background: #1a1a1a;
+                overflow: hidden;
+            }
+        /* 外层手机壳 */
+        body > .phone-shell {
+            width: 393px;
+            height: 852px;
+            border-radius: 54px;
+            box-shadow:
+                0 0 0 2px #3a3a3a,
+                0 0 0 4px #222,
+                0 30px 80px rgba(0,0,0,0.7),
+                inset 0 0 0 1px #555;
+            position: relative;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: #000;
+            /* 防止加载时闪烁：初始隐藏，DOMContentLoaded 后 JS 设置为可见 */
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+            /* 顶部灵动岛 */
+            body > .phone-shell::before {
+                content: '';
+                position: absolute;
+                top: 12px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 120px;
+                height: 34px;
+                background: #000;
+                border-radius: 20px;
+                z-index: 99999;
+                pointer-events: none;
+            }
+            /* phone-screen 在壳内撑满 */
+            body > .phone-shell > .phone-screen {
+                width: 100%;
+                height: 100%;
+                border-radius: 54px;
+                overflow: hidden;
+            }
+        }
+
+        /* 移动端保持原有全屏布局 */
+        @media (max-width: 499px) {
+            body > .phone-shell {
+                width: 100%;
+                height: 100%;
+                border-radius: 0;
+                box-shadow: none;
+            }
+            body > .phone-shell > .phone-screen {
+                width: 100%;
+                height: 100%;
+                border-radius: 0;
+            }
+        }
 
         /* 背景 */
         .phone-screen {
@@ -359,7 +424,13 @@
 .emoticon-group-tag.active .del-btn { color: #aaa; }
 .emoticon-add-group { background: #fafafa; padding: 4px 14px; border-radius: 16px; font-size: 12px; color: #999; border: 1px dashed #ddd; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
 .emoticon-add-group:active { background: #f0f0f0; }
-.emoticon-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; width: 100%; align-content: start; }
+.emoticon-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; width: 100%; align-content: start; padding: 0 5px 15px 5px; }
+.emo-item { position: relative; width: 100%; aspect-ratio: 1; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border: 1px solid #f0f0f0; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; }
+.emo-item img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
+.emo-item-desc { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.92); font-size: 9px; color: #666; text-align: center; padding: 2px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.emo-checkbox { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid #ccc; background: #fff; z-index: 5; display: none; }
+.emo-item.manage-mode .emo-checkbox { display: block; }
+.emo-item.manage-mode .emo-checkbox.checked { background: #ff7b9c; border-color: #ff7b9c; }
 .emoticon-item { position: relative; width: 100%; aspect-ratio: 1; border-radius: 12px; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.03); border: 1px solid #f9f9f9; overflow: hidden; display: flex; flex-direction: column; }
 .emoticon-img { width: 100%; height: 100%; object-fit: contain; padding: 4px; background: #fdfdfd; }
 .emoticon-desc { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.95); backdrop-filter: blur(4px); font-size: 9px; color: #555; text-align: center; padding: 4px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 1px solid rgba(0,0,0,0.03); }
@@ -1109,4 +1180,37 @@
 img {
     -webkit-user-drag: none; /* 禁止图片被拖拽导致卡顿 */
     object-fit: cover;
-                    }
+}
+
+/* ====== 支付密码弹出层 ====== */
+.pay-pwd-box {
+  width: 42px; height: 42px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  background: #fafafa;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; color: #333;
+  transition: border-color 0.2s;
+}
+.pay-pwd-box.filled { border-color: #aaa; }
+.pay-pwd-box.active { border-color: #888; box-shadow: 0 0 0 2px rgba(100,100,100,0.12); }
+.pay-keyboard {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.pay-key {
+  height: 52px;
+  background: #f5f5f5;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 500; color: #333;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+.pay-key:active { background: #e0e0e0; }
+.pay-key-empty { background: transparent; cursor: default; }
+.pay-key-empty:active { background: transparent; }
+.pay-key-del { background: #efefef; }
+.pay-key-del svg { stroke: #555; }

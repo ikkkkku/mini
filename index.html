@@ -11,6 +11,9 @@
     <meta name="referrer" content="no-referrer">
     <title>mini Phone</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <!-- 预连接 CDN，减少 DNS 查询延迟 -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <!-- 
       1. 核心持久化方案：Dexie.js + IndexedDB
       - 通过引入 Dexie.js 库封装 IndexedDB，用于存储聊天记录、角色信息、世界书数据、面具配置、图片、日记、论坛、购物、闲鱼、查手机、情侣空间数据等大量结构化、大容量数据，是项目最主要的持久化手段。
@@ -22,6 +25,35 @@
     -->
     <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* 性能优化：页面加载时手机壳先隐藏，等JS恢复完成后再显示，防止图标/壁纸闪烁 */
+        .phone-shell { opacity: 0; transition: opacity 0.25s ease; }
+    </style>
+    <script>
+        /* 性能优化：在页面解析时立即恢复 UI 缩放，避免加载后跳动 */
+        (function() {
+            try {
+                var scale = localStorage.getItem('localforage/miffy_ui_scale');
+                if (!scale) {
+                    // localforage 默认用 IndexedDB，localStorage 中可能没有
+                    // 尝试读取 localforage 的 localStorage 后备
+                    var keys = Object.keys(localStorage);
+                    for (var i = 0; i < keys.length; i++) {
+                        if (keys[i].indexOf('miffy_ui_scale') !== -1) {
+                            scale = localStorage.getItem(keys[i]);
+                            break;
+                        }
+                    }
+                }
+                if (scale) {
+                    var val = parseFloat(scale);
+                    if (val && val >= 50 && val <= 150) {
+                        document.documentElement.style.zoom = val / 100;
+                    }
+                }
+            } catch(e) {}
+        })();
+    </script>
     <!-- PWA 配置，用于触发 Edge 安装为应用 -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#ffffff">
@@ -60,7 +92,7 @@
                     </div>
                     <div class="profile-card widget-common" style="background: rgba(235, 235, 235, 0.6);">
     <div class="profile-left">
-        <div class="miffy-avatar editable" id="avatar-1"><img src="https://via.placeholder.com/100"></div>
+        <div class="miffy-avatar editable" id="avatar-1"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async"></div>
         <div style="flex: 1;">
             <div style="display: flex; align-items: center;">
                 <span class="editable-text" id="text-name" style="font-size:14px; font-weight:bold;">兔兔丸</span>
@@ -83,7 +115,7 @@
                             <!-- 头像与时间区 -->
                             <div style="display: flex; align-items: center; width: 100%; gap: 10px;">
                                 <div style="width: 38px; height: 38px; background: #eee; border-radius: 50%; overflow: hidden; flex-shrink: 0;">
-                                    <img src="https://via.placeholder.com/100" style="width: 100%; height: 100%; object-fit: cover;">
+                                    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy" decoding="async">
                                 </div>
                                 <div style="display: flex; flex-direction: column;">
                                     <div id="big-clock" style="font-size: 20px; font-weight: 600; color: #333; line-height: 1;">00:47</div>
@@ -129,7 +161,7 @@
                         <div class="widget-common" style="width: 160px; height: 160px; padding: 16px 14px; display: flex; flex-direction: column; justify-content: space-between; border-radius: 30px; background: rgba(255, 255, 255, 0.95); margin: 0 auto;">
                             <!-- 头像区 -->
                             <div class="editable" id="avatar-right-bottom" style="width: 42px; height: 42px; background: #eee; border-radius: 50%; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin: 0 auto; display: flex; align-items: center; justify-content: center;">
-                                <img src="https://via.placeholder.com/100" style="width: 100%; height: 100%; object-fit: cover; object-position: center;">
+                                <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" style="width: 100%; height: 100%; object-fit: cover; object-position: center;" loading="lazy" decoding="async">
                             </div>
                             <!-- 时间日期区 -->
                             <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
@@ -154,7 +186,7 @@
                 <div class="page-content">
                     <div style="display:flex; gap:18px; margin-top: 15px;">
                         <div class="polaroid-container editable" id="pl-1" style="width:160px; height:auto;">
-                            <div class="polaroid-img-box"><img src="https://via.placeholder.com/300"></div>
+                            <div class="polaroid-img-box"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async"></div>
                             <p class="editable-text" id="text-polaroid" style="font-size:11px; color:#999; margin-top:10px; text-align:center;">叫我兔兔丸</p>
                         </div>
                         <div class="icon-grid" style="flex:1;">
@@ -165,9 +197,9 @@
                         </div>
                     </div>
                     <div style="display:flex; justify-content:space-around; padding: 15px 0;">
-                        <div class="polaroid-container editable" id="pl-2" style="width:100px; height:auto; transform:rotate(-6deg);"><div class="polaroid-img-box"><img src="https://via.placeholder.com/200"></div></div>
-                        <div class="polaroid-container editable" id="pl-3" style="width:100px; height:auto; transform:rotate(4deg);"><div class="polaroid-img-box"><img src="https://via.placeholder.com/200"></div></div>
-                        <div class="polaroid-container editable" id="pl-4" style="width:100px; height:auto; transform:rotate(-2deg);"><div class="polaroid-img-box"><img src="https://via.placeholder.com/200"></div></div>
+                        <div class="polaroid-container editable" id="pl-2" style="width:100px; height:auto; transform:rotate(-6deg);"><div class="polaroid-img-box"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async"></div></div>
+                        <div class="polaroid-container editable" id="pl-3" style="width:100px; height:auto; transform:rotate(4deg);"><div class="polaroid-img-box"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async"></div></div>
+                        <div class="polaroid-container editable" id="pl-4" style="width:100px; height:auto; transform:rotate(-2deg);"><div class="polaroid-img-box"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async"></div></div>
                     </div>
                     <div style="display:flex; gap:18px; align-items:flex-end; margin-top: 5px;">
                         <div class="icon-grid" style="flex:1;">
@@ -177,7 +209,7 @@
                             <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>占位</span></div>
                         </div>
                         <div class="polaroid-container editable" id="pl-5" style="width:160px; height:auto; transform:rotate(2deg);">
-                             <div class="polaroid-img-box"><img src="https://via.placeholder.com/300"></div>
+                             <div class="polaroid-img-box"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async"></div>
                         </div>
                     </div>
                 </div>
@@ -208,7 +240,7 @@
                 <div class="theme-section-body">
                     <div class="virtual-phone editable" id="wallpaper-preview" style="transform: scale(0.9);">
                         <div class="virtual-phone-screen">
-                            <img src="https://via.placeholder.com/300x600?text=Wallpaper" alt="preview">
+                            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="preview" loading="lazy" decoding="async">
                             <div class="virtual-notch"></div>
                         </div>
                     </div>
@@ -513,13 +545,13 @@
         <!-- 朋友圈页面 (无 padding-top，直接顶满屏幕掩盖壁纸) -->
         <div id="wechat-tab-moments" class="wechat-tab-page">
             <div class="moments-container">
-                <div class="moments-cover editable" id="wechat-moments-bg">
-                    <img src="https://via.placeholder.com/600x800?text=Moments+Cover">
+                    <div class="moments-cover editable" id="wechat-moments-bg">
+                        <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async">
                     <div class="moments-float-btn" style="left:20px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg></div>
                     <div class="moments-float-btn" style="right:20px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg></div>
                     <div class="moments-user-info">
                         <span class="moments-nickname editable-text" id="text-wechat-nick">兔兔丸</span>
-                        <div class="moments-avatar-sq editable" id="wechat-avatar-sq"><img src="https://via.placeholder.com/150"></div>
+                        <div class="moments-avatar-sq editable" id="wechat-avatar-sq"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async"></div>
                     </div>
                 </div>
                 <div class="moments-feed">
@@ -538,7 +570,7 @@
             </div>
             <div class="app-body" style="padding: 10px 0;">
                 <div class="me-header">
-                    <div class="me-avatar-big editable" id="wechat-avatar-big"><img src="https://via.placeholder.com/200"></div>
+                    <div class="me-avatar-big editable" id="wechat-avatar-big"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async"></div>
                     <div class="me-info">
                         <div class="me-name editable-text" id="text-wechat-me-name">兔兔丸</div>
                         <div class="me-sig editable-text" id="text-wechat-sig">微信号：mini_2026</div>

@@ -200,6 +200,12 @@ if(rw) rw.textContent = week;
 async function initThemeIcons() {
     if (!themeIconGrid) return;
     themeIconGrid.innerHTML = '';
+    // 性能优化：一次性批量查询所有主题图标的 IndexedDB 记录，避免 N 次顺序 await
+    const themeIds = Array.from({ length: mainIcons.length }, (_, i) => 'theme-icon-' + i);
+    const themeRecords = await imgDb.images.where('id').anyOf(themeIds).toArray();
+    const themeMap = {};
+    themeRecords.forEach(r => { themeMap[r.id] = r.src; });
+
     for (let index = 0; index < mainIcons.length; index++) {
         const mainImg = mainIcons[index];
         const id = 'theme-icon-' + index;
@@ -209,8 +215,7 @@ async function initThemeIcons() {
         itemDiv.className = 'theme-icon-item editable';
         itemDiv.id = id;
         const img = document.createElement('img');
-        const record = await imgDb.images.get(id);
-        const saved = record ? record.src : null;
+        const saved = themeMap[id] || null;
         img.src = saved || whitePixel;
         itemDiv.appendChild(img);
         container.appendChild(itemDiv);
@@ -238,32 +243,48 @@ async function initThemeIcons() {
     }
 }
 window.addEventListener('DOMContentLoaded', async () => {
-        // 修复电脑端加载时闪烁/延伸：页面加载完成后再显示手机壳
+        // 修复电脑端加载时闪烁/延伸：页面加载完成后立即显示手机壳，不等待 DB
         const shell = document.querySelector('.phone-shell');
         if (shell) {
             requestAnimationFrame(() => { shell.style.opacity = '1'; });
         }
+
+        // ===== 性能优化：批量并行读取所有持久化数据，消除顺序 await 阻塞 =====
+
+        // 1. 并行读取所有 editable-text 的 key
         const textElements = document.querySelectorAll('.editable-text');
-        for (let el of textElements) {
-            const savedText = await localforage.getItem('miffy_text_' + el.id);
-            if(savedText) el.textContent = savedText;
-        }
+        const textKeys = Array.from(textElements).map(el => 'miffy_text_' + el.id);
+        const textValues = await Promise.all(textKeys.map(k => localforage.getItem(k)));
+        textElements.forEach((el, i) => {
+            if (textValues[i]) el.textContent = textValues[i];
+        });
+
+        // 2. 并行读取所有 editable 图片（批量 IndexedDB 查询）
         const editables = document.querySelectorAll('.editable');
-        for (let i = 0; i < editables.length; i++) {
-            const el = editables[i];
-            if (!el.id) continue;
+        const editableIds = Array.from(editables)
+            .filter(el => el.id && el.querySelector('img'))
+            .map(el => el.id);
+        // 一次性批量获取所有图片记录
+        const imgRecords = await imgDb.images.where('id').anyOf(editableIds).toArray();
+        const imgMap = {};
+        imgRecords.forEach(r => { imgMap[r.id] = r.src; });
+        editables.forEach(el => {
+            if (!el.id) return;
             const img = el.querySelector('img');
-            if(img) {
-                const record = await imgDb.images.get(el.id);
-                img.src = record ? record.src : whitePixel;
+            if (img) {
+                img.src = imgMap[el.id] || whitePixel;
             }
-        }
+        });
+
         renderWorldbooks();
         await initThemeIcons();
-        // 初始化全局字体、粗细、大小
-        const savedFont = await localforage.getItem('miffy_global_font');
-        const savedWeight = await localforage.getItem('miffy_global_font_weight');
-        const savedSize = await localforage.getItem('miffy_global_font_size');
+
+        // 3. 并行读取字体/粗细/大小设置
+        const [savedFont, savedWeight, savedSize] = await Promise.all([
+            localforage.getItem('miffy_global_font'),
+            localforage.getItem('miffy_global_font_weight'),
+            localforage.getItem('miffy_global_font_size')
+        ]);
         if (savedFont) {
             currentFontData = savedFont;
             const fontInput = document.getElementById('font-url-input');
@@ -286,6 +307,19 @@ window.addEventListener('DOMContentLoaded', async () => {
             if (sizeVal) sizeVal.textContent = savedSize + 'px';
         }
         renderGlobalFont();
+
+        // 4. 恢复 UI 缩放（localforage 异步读取，覆盖 head 内脚本的 localStorage 尝试）
+        const savedUiScale = await localforage.getItem('miffy_ui_scale');
+        if (savedUiScale) {
+            const scaleVal = parseFloat(savedUiScale);
+            if (scaleVal && scaleVal >= 50 && scaleVal <= 150) {
+                document.documentElement.style.zoom = scaleVal / 100;
+                const slider = document.getElementById('ui-scale-slider');
+                const display = document.getElementById('ui-scale-val');
+                if (slider) slider.value = scaleVal;
+                if (display) display.textContent = scaleVal + '%';
+            }
+        }
     });
     function setWallpaper(src) {
         const screen = document.querySelector('.phone-screen');
@@ -1971,7 +2005,7 @@ document.getElementById('contact-edit-id').value = '';
                 }
                 msgBodyHtml = `
                     <div class="card-wrapper" data-no-bubble="1">
-                        <div class="chat-red-packet-card" onclick="openRpClaimModal(this, '${rpAmount}', '${rpDesc}', '${rpStatus}', '${isMe ? 'me' : 'role'}', '${roleName}')">
+                        <div class="chat-red-packet-card" onclick="openRpClaimModal(this, '${rpAmount}', '${rpDesc}', '${rpStatus}', '${isMe ? 'me' : 'role'}', '${roleName}', ${msg.id})">
                             <div class="rp-card-top">
                                 <div class="rp-card-icon">
                                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

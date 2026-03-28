@@ -81,6 +81,8 @@
             background: linear-gradient(90deg, rgba(220,220,220,0.15) 1px, transparent 1px),
                         linear-gradient(rgba(220,220,220,0.15) 1px, transparent 1px);
             background-size: 25px 25px; position: relative;
+            /* 修复：电脑端必须裁剪溢出，防止全屏应用页面在手机壳外显示 */
+            overflow: hidden;
         }
         .swiper { width: 100%; height: 100%; z-index: 1; }
         .page-content { padding: 30px 22px 120px 22px; display: flex; flex-direction: column; gap: 18px; height: 100%; }
@@ -136,6 +138,9 @@
         .editable-text { cursor: pointer; }
         .editable-text:hover { opacity: 0.7; }
         /* ====== 新增：主题应用页面、设置页面与世界书页面通用基础样式 ====== */
+        /* 修复：移除 animation: slideUp，该动画使用 transform 会创建新的堆叠上下文，
+           导致电脑端多个 full-app-page 相互遮挡、点击失效、显示错乱等问题。
+           改为直接显示，保持简洁可靠的层叠行为。 */
         .full-app-page {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -144,17 +149,12 @@
             z-index: 80; 
             display: none; 
             flex-direction: column;
-            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             padding-top: 0;
         }
         .app-back svg, .app-header-action svg {
             width: 20px !important;
             height: 20px !important;
             stroke-width: 2.5 !important;
-        }
-        @keyframes slideUp {
-            from { transform: translateY(100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
         }
         .app-header {
             height: 60px; padding: 0 20px; display: flex; align-items: center; 
@@ -316,7 +316,9 @@
             color: #777; border-radius: 17px; cursor: pointer; transition: all 0.2s;
         }
         .wb-tab.active { background: #fff; color: #333; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-        .wb-list { width: 100%; display: flex; flex-direction: column; gap: 15px; flex: 1; }
+        /* 修复：世界书列表需要 min-height: 0 才能在 flex 容器中正确收缩并启用滚动 */
+        .wb-list { width: 100%; display: flex; flex-direction: column; gap: 15px; flex: 1; min-height: 0; overflow-y: auto; }
+        .wb-list::-webkit-scrollbar { display: none; }
         .wb-empty { text-align: center; color: #bbb; font-size: 13px; margin-top: 40px; letter-spacing: 1px; }
         .wb-card {
             background: #fff; border-radius: 18px; padding: 18px; width: 100%;
@@ -1165,13 +1167,14 @@
 .notif-time { font-size: 11px; color: #999; }
 .notif-text { font-size: 13px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* ====== 性能优化：强制 GPU 硬件加速 ====== */
+/* 修复：full-app-page 不能加 will-change/translateZ，否则 display:none 的隐藏页面也会占据 GPU 合成层，
+   在电脑端导致点击穿透失效（点设置打开WeChat、无法点击WeChat/小说/世界书等）*/
 .swiper-wrapper,
 .swiper-slide,
 .widget-common,
 .dock,
 .app-header,
-.chat-footer,
-.full-app-page {
+.chat-footer {
     /* 强制开启 3D 硬件加速 */
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
@@ -1700,6 +1703,37 @@ img {
     transition: background 0.2s;
 }
 .rp-back-btn:active { background: rgba(0,0,0,0.45); }
+/* 右上角三个点按钮 */
+.rp-more-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 200;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.28);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: background 0.2s;
+}
+.rp-more-btn:active { background: rgba(0,0,0,0.45); }
+/* 三个点下拉菜单项 */
+.rp-dropdown-item {
+    padding: 14px 18px;
+    font-size: 14px;
+    color: #333;
+    cursor: pointer;
+    border-bottom: 0.5px solid #f0f0f0;
+    transition: background 0.15s;
+    white-space: nowrap;
+}
+.rp-dropdown-item:last-child { border-bottom: none; }
+.rp-dropdown-item:active { background: #f5f5f5; }
 .rp-scroll-body {
     flex: 1;
     overflow-y: auto;

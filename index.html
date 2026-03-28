@@ -1693,6 +1693,10 @@
         <div class="rp-back-btn" onclick="closeRoleProfile()">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         </div>
+        <!-- 右上角三个点按钮（悬浮在封面上，暂无点击事件） -->
+        <div class="rp-more-btn" id="rp-more-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg>
+        </div>
         <!-- 可滚动内容区 -->
         <div class="rp-scroll-body">
             <!-- 封面+头像+名字信息区 -->
@@ -1716,22 +1720,34 @@
                 </div>
             </div>
 
-            <!-- 功能菜单列表区 -->
+            <!-- 朋友圈 独立圆角矩形 -->
             <div class="rp-menu-section">
-                <!-- 朋友圈入口 -->
                 <div class="rp-menu-item" onclick="openRoleProfileMoments()">
                     <span class="rp-menu-label">朋友圈</span>
                     <svg class="rp-menu-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#c8c8c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                 </div>
-                <!-- 通话入口 -->
+            </div>
+            <!-- 通话 + 发消息 同一圆角矩形 -->
+            <div class="rp-menu-section" style="margin-top: 14px;">
                 <div class="rp-menu-item">
                     <span class="rp-menu-label">通话</span>
                     <svg class="rp-menu-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#c8c8c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                 </div>
-                <!-- 发消息入口 -->
                 <div class="rp-menu-item" onclick="closeRoleProfileAndChat()">
                     <span class="rp-menu-label">发消息</span>
                     <svg class="rp-menu-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#c8c8c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                </div>
+            </div>
+            <!-- 清空聊天记录 独立圆角矩形 居中无箭头 -->
+            <div class="rp-menu-section" style="margin-top: 14px;">
+                <div class="rp-menu-item" style="justify-content: center;" onclick="clearRpChatHistory()">
+                    <span class="rp-menu-label" style="flex: unset; text-align: center; font-size: 14px; color: #555;">清空所有聊天记录</span>
+                </div>
+            </div>
+            <!-- 拉黑 独立圆角矩形 居中无箭头 -->
+            <div class="rp-menu-section" style="margin-top: 14px;">
+                <div class="rp-menu-item" style="justify-content: center;" onclick="blockRpContact()">
+                    <span class="rp-menu-label" style="flex: unset; text-align: center; font-size: 14px; color: #d96a6a;">拉黑</span>
                 </div>
             </div>
         </div>

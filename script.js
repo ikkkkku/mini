@@ -1,6 +1,8 @@
-﻿const whitePixel = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-const imgDb = new Dexie("miniPhoneImagesDB");
+﻿const imgDb = new Dexie("miniPhoneImagesDB");
 imgDb.version(1).stores({ images: 'id, src' });
+
+// 修复：whitePixel 是全局通用的 1x1 透明占位图，用于图标/头像未加载时的默认值，防止出现 ReferenceError
+const whitePixel = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 // ====== 资产钱包持久化数据库 (Dexie.js + IndexedDB) ======
 const walletDb = new Dexie("miniPhoneWalletDB");
@@ -82,8 +84,17 @@ function _buildBankCardElement(cardData) {
 const appIconNames = ["小说", "日记", "购物", "论坛", "WeChat", "纪念日", "遇恋", "世界书", "占位1", "闲鱼", "查手机", "情侣空间", "占位2", "占位3", "占位4", "占位5", "主题", "设置"];
 const themeIconGrid = document.getElementById('icon-theme-grid');
 const mainIcons = document.querySelectorAll('.icon-img img, .dock-icon img');
+    // 修复电脑端：打开任意全屏应用前，先关闭其他所有全屏应用，防止多个 full-app-page 同时可见互相遮挡
+    function openApp(appId) {
+        document.querySelectorAll('.full-app-page').forEach(el => {
+            if (el.id !== appId) el.style.display = 'none';
+        });
+        const app = document.getElementById(appId);
+        if (app) app.style.display = 'flex';
+    }
+
     const menu = document.getElementById('menu-panel');
-    const swiper = new Swiper('.mySwiper', { 
+    const swiper = new Swiper('.mySwiper', {
         loop: false,
         resistanceRatio: 0, // 减少边缘回弹的计算阻力
         observer: true,     // 开启 DOM 变动监听
@@ -171,11 +182,11 @@ if(rw) rw.textContent = week;
     }
     async function applyImage(id, src) {
         // 特殊处理：角色主页封面背景更换
+        // 修复：不能先设置 backgroundImage 再清空 background，否则 background 简写属性会把 backgroundImage 也一起清掉
         if (id === 'rp-cover-bg-img') {
             const coverBg = document.getElementById('rp-cover-bg');
             if (coverBg) {
-                coverBg.style.backgroundImage = `url(${src})`;
-                coverBg.style.background = '';
+                coverBg.style.cssText = `background-image: url(${src}); background-size: cover; background-position: center; background-color: transparent;`;
             }
             try {
                 await imgDb.images.put({ id: id, src: src });
@@ -635,7 +646,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if(wbBtn) {
         wbBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            wbApp.style.display = 'flex';
+            openApp('worldbook-app');
             renderWorldbooks();
         });
     }
@@ -751,7 +762,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if(wechatBtn) {
         wechatBtn.onclick = (e) => { 
             e.stopPropagation(); 
-            document.getElementById('wechat-app').style.display = 'flex'; 
+            openApp('wechat-app');
         };
     }
     function closeWechatApp() { document.getElementById('wechat-app').style.display = 'none'; }
@@ -1822,7 +1833,7 @@ document.getElementById('contact-edit-id').value = '';
     if(novelBtn) {
         novelBtn.onclick = (e) => { 
             e.stopPropagation(); 
-            document.getElementById('novel-app').style.display = 'flex'; 
+            openApp('novel-app');
         };
     }
     function closeNovelApp() {
@@ -1922,7 +1933,11 @@ document.getElementById('contact-edit-id').value = '';
         if (msg.isRecalled) {
             const myName = document.getElementById('text-wechat-me-name') ? document.getElementById('text-wechat-me-name').textContent : '我';
             const name = msg.sender === 'me' ? myName : (activeChatContact.roleName || '角色');
-            return `<div class="msg-recalled-tip">“${name}”撤回了一条消息 <span onclick="viewRecalledMsg(${msg.id})">查看</span></div>`;
+            return `<div class="msg-recalled-tip">"${name}"撤回了一条消息 <span onclick="viewRecalledMsg(${msg.id})">查看</span></div>`;
+        }
+        // 系统提示消息（红包/转账状态提示等）单独渲染，不走气泡逻辑
+        if (msg.isSystemTip) {
+            return `<div class="msg-recalled-tip">${msg.content}</div>`;
         }
         const isMe = msg.sender === 'me';
         const avatar = isMe ? myAvatar : roleAvatar;
@@ -1988,21 +2003,11 @@ document.getElementById('contact-edit-id').value = '';
             } else if (parsed && parsed.type === 'red_packet') {
                 statusHtml = '';
                 const rpAmount = parsed.amount || '0.00';
-                const rpDesc = parsed.desc || '恭喜发财，大吉大利';
+                const rpDesc = parsed.greeting || parsed.desc || '恭喜发财，大吉大利';
                 const rpStatus = parsed.status || 'unclaimed';
                 const rpStatusLabel = rpStatus === 'claimed' ? '已领取' : '待领取';
                 const rpStatusColor = rpStatus === 'claimed' ? '#bbb' : '#e8534a';
                 const roleName = activeChatContact ? (activeChatContact.roleName || '对方') : '对方';
-                const myName = document.getElementById('text-wechat-me-name') ? document.getElementById('text-wechat-me-name').textContent : '我';
-                // 状态提示文字：已领取才显示
-                let rpStatusTip = '';
-                if (rpStatus === 'claimed') {
-                    if (isMe) {
-                        rpStatusTip = `<div class="card-status-tip">${roleName} 领取了你的红包</div>`;
-                    } else {
-                        rpStatusTip = `<div class="card-status-tip">你领取了 ${roleName} 的红包</div>`;
-                    }
-                }
                 msgBodyHtml = `
                     <div class="card-wrapper" data-no-bubble="1">
                         <div class="chat-red-packet-card" onclick="openRpClaimModal(this, '${rpAmount}', '${rpDesc}', '${rpStatus}', '${isMe ? 'me' : 'role'}', '${roleName}', ${msg.id})">
@@ -2026,31 +2031,19 @@ document.getElementById('contact-edit-id').value = '';
                                 <span class="rp-card-brand">红包</span>
                             </div>
                         </div>
-                        ${rpStatusTip}
                     </div>
                 `;
-            } else if (parsed && parsed.type === 'transfer') {
+            } else if (parsed && (parsed.type === 'transfer' || parsed.type === 'transaction')) {
                 statusHtml = '';
-                const tfAmount = parsed.amount || '0.00';
-                const tfDesc = parsed.desc || '转账';
+                const tfAmount = (parsed.amount !== undefined && parsed.amount !== null && parsed.amount !== '') ? String(parsed.amount) : '0.00';
+                const tfDesc = parsed.note || parsed.desc || '转账';
                 const tfStatus = parsed.status || 'pending';
                 const tfStatusLabel = tfStatus === 'refunded' ? '已退回' : (tfStatus === 'received' ? '已收款' : '待收款');
                 const tfStatusColor = tfStatus === 'refunded' ? '#bbb' : (tfStatus === 'received' ? '#27ae60' : '#1a6fb5');
                 const roleName2 = activeChatContact ? (activeChatContact.roleName || '对方') : '对方';
-                // 状态提示文字
-                let tfStatusTip = '';
-                if (tfStatus === 'received') {
-                    tfStatusTip = isMe
-                        ? `<div class="card-status-tip">${roleName2} 接收了你的转账</div>`
-                        : `<div class="card-status-tip">你接收了 ${roleName2} 的转账</div>`;
-                } else if (tfStatus === 'refunded') {
-                    tfStatusTip = isMe
-                        ? `<div class="card-status-tip">${roleName2} 退回了你的转账</div>`
-                        : `<div class="card-status-tip">你退回了 ${roleName2} 的转账</div>`;
-                }
                 msgBodyHtml = `
                     <div class="card-wrapper" data-no-bubble="1">
-                        <div class="chat-transfer-card" onclick="openTfActionModal(this, '${tfAmount}', '${tfDesc}', '${tfStatus}', '${isMe ? 'me' : 'role'}', '${roleName2}')">
+                        <div class="chat-transfer-card" data-tf-amount="${tfAmount}" data-tf-desc="${tfDesc.replace(/"/g, '&quot;')}" data-tf-status="${tfStatus}" data-tf-role="${isMe ? 'me' : 'role'}" data-tf-rname="${roleName2.replace(/"/g, '&quot;')}" onclick="openTfActionModal(this, this.dataset.tfAmount, this.dataset.tfDesc, this.dataset.tfStatus, this.dataset.tfRole, this.dataset.tfRname)">
                             <div class="tf-card-top">
                                 <div class="tf-card-icon">
                                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2070,7 +2063,6 @@ document.getElementById('contact-edit-id').value = '';
                                 <span class="tf-card-brand">转账</span>
                             </div>
                         </div>
-                        ${tfStatusTip}
                     </div>
                 `;
             } else if (parsed && ['takeaway', 'gift', 'call', 'video_call'].includes(parsed.type)) {
@@ -2082,6 +2074,112 @@ document.getElementById('contact-edit-id').value = '';
             if (msg.content && msg.content.startsWith('[CAMERA]')) {
                 isCameraMsg = true;
                 cameraDesc = msg.content.substring(8);
+            }
+            // 兼容旧的纯文本转账/红包格式，统一匹配所有可能的前缀变体：
+            // 💰 [微信转账] 向你转账 ¥200.00
+            // 【转账：测试专用】
+            // [转账] 向你转账 ¥12.00
+            else if (msg.content && (
+                msg.content.startsWith('💰') ||
+                msg.content.startsWith('【转账') ||
+                msg.content.startsWith('[转账]') ||
+                /^\[微信转账\]/.test(msg.content)
+            )) {
+                statusHtml = '';
+                // 统一清理各种前缀后提取剩余文本
+                let tfText = msg.content
+                    .replace(/^💰\s*/, '')
+                    .replace(/^\[微信转账\]\s*/,'')
+                    .replace(/^【转账[：:][^】]*】\s*/,'')
+                    .replace(/^\[转账\]\s*/,'')
+                    .trim();
+                // 尝试提取金额（¥ 后面的数字，或直接的纯数字）
+                const amtMatch = tfText.match(/¥\s*([\d,]+(?:\.\d+)?)/) || tfText.match(/^([\d,]+(?:\.\d+)?)/);
+                const tfAmount = amtMatch ? amtMatch[1].replace(/,/g, '') : '0.00';
+                // 提取备注：去掉"向你转账"和金额部分后剩余内容，或用原始文本
+                let tfDesc = tfText
+                    .replace(/向你转账\s*/g, '')
+                    .replace(/¥\s*[\d,]+(?:\.\d+)?/, '')
+                    .replace(/^[\d,]+(?:\.\d+)?/, '')
+                    .trim();
+                if (!tfDesc) tfDesc = '转账';
+                const roleName2 = activeChatContact ? (activeChatContact.roleName || '对方') : '对方';
+                msgBodyHtml = `
+                    <div class="card-wrapper" data-no-bubble="1">
+                        <div class="chat-transfer-card" onclick="openTfActionModal(this, '${tfAmount}', '${tfDesc}', 'pending', '${isMe ? 'me' : 'role'}', '${roleName2}')">
+                            <div class="tf-card-top">
+                                <div class="tf-card-icon">
+                                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                                        <path d="M2 17l10 5 10-5"></path>
+                                        <path d="M2 12l10 5 10-5"></path>
+                                    </svg>
+                                </div>
+                                <div class="tf-card-info">
+                                    <div class="tf-card-amount">¥ ${tfAmount}</div>
+                                    <div class="tf-card-desc">${tfDesc}</div>
+                                </div>
+                            </div>
+                            <div class="tf-card-divider"></div>
+                            <div class="tf-card-bottom">
+                                <span class="tf-card-status" style="color:#1a6fb5;">待收款</span>
+                                <span class="tf-card-brand">转账</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            // 兼容旧的纯文本红包格式，统一匹配所有可能的前缀变体：
+            // 🧧 [恭喜发财，大吉大利]
+            // 【红包：测试专用】
+            // [红包] ¥52.00
+            else if (msg.content && (
+                msg.content.startsWith('🧧') ||
+                msg.content.startsWith('【红包') ||
+                msg.content.startsWith('[红包]')
+            )) {
+                statusHtml = '';
+                // 统一清理各种红包前缀后提取剩余文本
+                let rpText = msg.content
+                    .replace(/^🧧\s*/, '')
+                    .replace(/^【红包[：:][^】]*】\s*/,'')
+                    .replace(/^\[红包\]\s*/,'')
+                    .trim();
+                // 尝试提取金额（¥ 后面的数字，或直接的纯数字）
+                const amtMatch2 = rpText.match(/¥\s*([\d,]+(?:\.\d+)?)/) || rpText.match(/^([\d,]+(?:\.\d+)?)/);
+                const rpAmount = amtMatch2 ? amtMatch2[1].replace(/,/g, '') : '0.00';
+                // 提取描述：优先取方括号内的文字（如 [恭喜发财，大吉大利]），否则用剩余文本（去掉数字部分）
+                const descInBracket = rpText.match(/^\[([^\]]+)\]/);
+                let rpDesc = descInBracket
+                    ? descInBracket[1]
+                    : (rpText.replace(/¥\s*[\d,]+(?:\.\d+)?/, '').replace(/^[\d,]+(?:\.\d+)?/, '').trim() || '恭喜发财，大吉大利');
+                if (!rpDesc) rpDesc = '恭喜发财，大吉大利';
+                const roleName = activeChatContact ? (activeChatContact.roleName || '对方') : '对方';
+                msgBodyHtml = `
+                    <div class="card-wrapper" data-no-bubble="1">
+                        <div class="chat-red-packet-card" onclick="openRpClaimModal(this, '${rpAmount}', '${rpDesc}', 'unclaimed', '${isMe ? 'me' : 'role'}', '${roleName}', ${msg.id})">
+                            <div class="rp-card-top">
+                                <div class="rp-card-icon">
+                                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="2" y="7" width="20" height="14" rx="3" ry="3"></rect>
+                                        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"></path>
+                                        <line x1="12" y1="12" x2="12" y2="16"></line>
+                                        <line x1="10" y1="14" x2="14" y2="14"></line>
+                                    </svg>
+                                </div>
+                                <div class="rp-card-info">
+                                    <div class="rp-card-amount">¥ ${rpAmount}</div>
+                                    <div class="rp-card-desc">${rpDesc}</div>
+                                </div>
+                            </div>
+                            <div class="rp-card-divider"></div>
+                            <div class="rp-card-bottom">
+                                <span class="rp-card-status" style="color:#e8534a;">待领取</span>
+                                <span class="rp-card-brand">红包</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
             }
         }
         if (isCameraMsg) {
@@ -2148,7 +2246,7 @@ document.getElementById('contact-edit-id').value = '';
                         ${msgBodyHtml}
                         ${statusHtml}
                     </div>
-                    <div class="chat-timestamp" style="${(isCameraMsg || isImageMsg || isEmoticonMsg || isLocationMsg) ? 'display:none;' : ''}">${msg.timeStr}</div>
+                    <div class="chat-timestamp" style="${(isCameraMsg || isImageMsg || isEmoticonMsg || isLocationMsg || ((() => { try { const p = JSON.parse(msg.content); return p.type === 'red_packet' || p.type === 'transfer'; } catch(e) { return false; } })())) ? 'display:none;' : ''}">${msg.timeStr}</div>
                 </div>
             </div>
         `;
@@ -2369,14 +2467,12 @@ document.getElementById('contact-edit-id').value = '';
         if (coverBg) {
             const savedCoverRecord = await imgDb.images.get('rp-cover-bg-img');
             if (savedCoverRecord && savedCoverRecord.src) {
-                coverBg.style.backgroundImage = `url(${savedCoverRecord.src})`;
-                coverBg.style.background = '';
+                // 修复：不能用 coverBg.style.background = '' 清除，否则会把刚设置的 backgroundImage 也一并清除
+                coverBg.style.cssText = `background-image: url(${savedCoverRecord.src}); background-size: cover; background-position: center; background-color: transparent;`;
             } else if (avatarSrc) {
-                coverBg.style.backgroundImage = `url(${avatarSrc})`;
-                coverBg.style.background = '';
+                coverBg.style.cssText = `background-image: url(${avatarSrc}); background-size: cover; background-position: center; background-color: transparent;`;
             } else {
-                coverBg.style.backgroundImage = 'none';
-                coverBg.style.background = 'linear-gradient(135deg,#667eea,#764ba2)';
+                coverBg.style.cssText = 'background: linear-gradient(135deg,#667eea,#764ba2);';
             }
         }
         // 填充姓名
@@ -2396,8 +2492,10 @@ document.getElementById('contact-edit-id').value = '';
         if (coverSection && !coverSection._rpClickBound) {
             coverSection._rpClickBound = true;
             coverSection.addEventListener('click', function(e) {
-                // 阻止点击返回按钮时触发
-                if (e.target.closest('.rp-back-btn')) return;
+                // 阻止点击返回按钮或三个点按钮时触发
+                if (e.target.closest('.rp-back-btn') || e.target.closest('.rp-more-btn')) return;
+                // 阻止事件冒泡，防止 document 的 click 监听立即关闭菜单
+                e.stopPropagation();
                 // 设置当前目标为封面背景
                 currentTargetId = 'rp-cover-bg-img';
                 // 显示菜单面板
@@ -2410,6 +2508,62 @@ document.getElementById('contact-edit-id').value = '';
 
     function closeRoleProfile() {
         document.getElementById('role-profile-app').style.display = 'none';
+    }
+
+    // 右上角三个点按钮：显示/隐藏下拉菜单
+    function openRpMoreDropdown(e) {
+        e.stopPropagation();
+        const dropdown = document.getElementById('rp-more-dropdown');
+        if (!dropdown) return;
+        if (dropdown.style.display === 'none' || dropdown.style.display === '') {
+            dropdown.style.display = 'block';
+        } else {
+            dropdown.style.display = 'none';
+        }
+    }
+
+    // 清空当前角色所有聊天记录（含角色记忆）
+    async function clearRpChatHistory() {
+        const dropdown = document.getElementById('rp-more-dropdown');
+        if (dropdown) dropdown.style.display = 'none';
+        if (!activeChatContact) return;
+        if (!confirm(`确定要清空与「${activeChatContact.roleName || '该角色'}」的所有聊天记录吗？\n角色记忆也将同步清除，此操作不可恢复！`)) return;
+        try {
+            const msgs = await chatListDb.messages.where('contactId').equals(activeChatContact.id).toArray();
+            const ids = msgs.map(m => m.id);
+            await chatListDb.messages.bulkDelete(ids);
+            renderChatList();
+            // 刷新聊天窗口（如果打开着）
+            const chatWin = document.getElementById('chat-window');
+            if (chatWin && chatWin.style.display === 'flex') {
+                const container = document.getElementById('chat-msg-container');
+                if (container) container.innerHTML = '';
+            }
+            alert('聊天记录已清空');
+        } catch (e) {
+            alert('清空失败: ' + e.message);
+            console.error(e);
+        }
+    }
+
+    // 拉黑联系人
+    async function blockRpContact() {
+        const dropdown = document.getElementById('rp-more-dropdown');
+        if (dropdown) dropdown.style.display = 'none';
+        if (!activeChatContact) return;
+        if (!confirm(`确定要拉黑「${activeChatContact.roleName || '该角色'}」吗？\n拉黑后将从联系人列表中移除，聊天记录保留。`)) return;
+        try {
+            // 删除聊天会话（不删消息记录）
+            const chat = await chatListDb.chats.where('contactId').equals(activeChatContact.id).first();
+            if (chat) await chatListDb.chats.delete(chat.id);
+            renderChatList();
+            closeRoleProfile();
+            document.getElementById('chat-window').style.display = 'none';
+            alert(`已拉黑「${activeChatContact.roleName || '该角色'}」`);
+        } catch (e) {
+            alert('操作失败: ' + e.message);
+            console.error(e);
+        }
     }
 
     function closeRoleProfileAndChat() {
@@ -2507,7 +2661,7 @@ document.getElementById('contact-edit-id').value = '';
             const recentMessages = (ctxLimit === 0) ? rawMessages : rawMessages.slice(-ctxLimit);
             const messages = [];
             // 将每轮回复数量调整为 2 到 7 条（两条以上）
-            const randomMsgCount = Math.floor(Math.random() * 3) + 4;
+            let randomMsgCount = Math.floor(Math.random() * 3) + 4;
             // 获取全部表情包库，供角色使用
             const allEmoticons = await emoDb.emoticons.toArray();
             let emoticonPrompt = "";
@@ -2585,14 +2739,20 @@ document.getElementById('contact-edit-id').value = '';
                 specialFeatures.push(`${featureIndex++}. 【强制】本次回复中必须包含一个表情包，使用 "type": "emoticon"，且必须从【可用表情包库】中挑选，严禁自己瞎编 url！`);
             }
             if (triggerRedPacket) {
-                allowedTypes.push("red_packet");
-                typeInstructions.push(`{"type": "red_packet", "amount": "金额", "desc": "恭喜发财"}`);
-                specialFeatures.push(`${featureIndex++}. 【强制】本次回复中必须包含发红包动作，使用 "type": "red_packet"。`);
+                // 发红包时：只允许 red_packet 类型，强制1条，禁止其他类型
+                allowedTypes = ["red_packet"];
+                typeInstructions = [`{"type": "red_packet", "amount": 52.0, "greeting": "给你的奶茶钱"}`];
+                specialFeatures = [`1. 【强制且唯一】本次只能发一条红包消息，必须严格输出JSON格式：{"type": "red_packet", "amount": 数字, "greeting": "红包祝福语"}。字段名必须是 amount 和 greeting，绝对禁止用【红包】、[红包]等任何非JSON格式，绝对禁止输出任何其他类型的消息。`];
+                featureIndex = 2;
+                randomMsgCount = 1;
             }
             if (triggerTransfer) {
-                allowedTypes.push("transfer");
-                typeInstructions.push(`{"type": "transfer", "amount": "金额", "desc": "转账给你"}`);
-                specialFeatures.push(`${featureIndex++}. 【强制】本次回复中必须包含转账动作，使用 "type": "transfer"。`);
+                // 发转账时：只允许 transaction 类型，强制1条，禁止其他类型
+                allowedTypes = ["transaction"];
+                typeInstructions = [`{"type": "transaction", "amount": 520, "note": "拿去买包"}`];
+                specialFeatures = [`1. 【强制且唯一】本次只能发一条转账消息，必须严格输出JSON格式：{"type": "transaction", "amount": 数字, "note": "转账备注"}。字段名必须是 amount 和 note，type必须是transaction，绝对禁止用【转账】、[转账]等任何非JSON格式，绝对禁止输出任何其他类型的消息。`];
+                featureIndex = 2;
+                randomMsgCount = 1;
             }
             // 若用户发送了红包/转账，角色可以主动处理（领取/接收/退回）
             // 检查是否有未处理的我发的红包或转账
@@ -2772,7 +2932,8 @@ ${langInstruction}
             for (let i = 0; i < replyArr.length; i++) {
                 const msgObj = replyArr[i];
                 // 红包、转账、处理红包/转账类型可能没有 content 字段，需要单独放行
-                const noContentTypes = ['red_packet', 'transfer', 'handle_red_packet', 'handle_transfer'];
+                // 兼容 transaction 类型（AI 实际返回的转账 type）
+                const noContentTypes = ['red_packet', 'transfer', 'transaction', 'handle_red_packet', 'handle_transfer'];
                 if (!msgObj.content && !noContentTypes.includes(msgObj.type)) continue;
                 await new Promise(res => setTimeout(res, 1800));
                 // 1. 处理撤回消息
@@ -2822,18 +2983,20 @@ ${langInstruction}
                     finalContent = JSON.stringify({ type: 'location', address: msgObj.address || '未知位置', distance: msgObj.distance || '' });
                 } else if (msgObj.type === 'red_packet') {
                     // 角色发红包：构造完整的红包结构，status 固定为 unclaimed
+                    // 兼容 greeting / desc / content 多种字段名
                     finalContent = JSON.stringify({
                         type: 'red_packet',
-                        amount: String(msgObj.amount || msgObj.content || '0.00'),
-                        desc: msgObj.desc || '恭喜发财，大吉大利',
+                        amount: String(msgObj.amount || '0.00'),
+                        desc: msgObj.greeting || msgObj.desc || '恭喜发财，大吉大利',
                         status: 'unclaimed'
                     });
-                } else if (msgObj.type === 'transfer') {
+                } else if (msgObj.type === 'transfer' || msgObj.type === 'transaction') {
                     // 角色发转账：构造完整的转账结构，status 固定为 pending
+                    // 兼容 transaction / transfer 两种 type，以及 note / desc / content 多种字段名
                     finalContent = JSON.stringify({
                         type: 'transfer',
-                        amount: String(msgObj.amount || msgObj.content || '0.00'),
-                        desc: msgObj.desc || '转账',
+                        amount: String(msgObj.amount || '0.00'),
+                        desc: msgObj.note || msgObj.desc || '转账',
                         status: 'pending'
                     });
                 } else if (msgObj.type === 'handle_red_packet') {
@@ -3972,8 +4135,10 @@ async function _roleHandleTransfer(lockedContact, action) {
 
 // ====== 红包领取弹窗逻辑 ======
 var _rpClaimCardEl = null;
-function openRpClaimModal(cardEl, amount, desc, status, senderRole, roleName) {
+var _rpClaimMsgId = null;
+function openRpClaimModal(cardEl, amount, desc, status, senderRole, roleName, msgId) {
     _rpClaimCardEl = cardEl;
+    _rpClaimMsgId = msgId || null;
     document.getElementById('rp-claim-amount').textContent = '¥ ' + amount;
     document.getElementById('rp-claim-desc').textContent = desc;
     var actionsEl = document.getElementById('rp-claim-actions');
@@ -3993,7 +4158,7 @@ function openRpClaimModal(cardEl, amount, desc, status, senderRole, roleName) {
             btn.textContent = '领取红包';
             btn.onmousedown = function() { btn.style.background = 'rgba(255,255,255,0.35)'; };
             btn.onmouseup = function() { btn.style.background = 'rgba(255,255,255,0.22)'; };
-            btn.onclick = function() { _doClaimRp(senderRole, roleName); };
+            btn.onclick = function() { _doClaimRp(senderRole, roleName, parseFloat(amount)); };
             actionsEl.appendChild(btn);
         }
     }
@@ -4014,29 +4179,43 @@ function closeRpClaimModal() {
     document.getElementById('rp-claim-modal').style.display = 'none';
     _rpClaimCardEl = null;
 }
-function _doClaimRp(senderRole, roleName) {
+async function _doClaimRp(senderRole, roleName, amount) {
+    var cardElRef = _rpClaimCardEl;
+    var msgIdRef = _rpClaimMsgId;
     closeRpClaimModal();
-    if (!_rpClaimCardEl) return;
-    // 更新卡片状态
-    var statusEl = _rpClaimCardEl.querySelector('.rp-card-status');
+    if (!cardElRef) return;
+    // 更新卡片状态（DOM）
+    var statusEl = cardElRef.querySelector('.rp-card-status');
     if (statusEl) {
         statusEl.textContent = '已领取';
         statusEl.style.color = '#bbb';
     }
-    _rpClaimCardEl.style.opacity = '0.75';
-    // 在 card-wrapper 中添加状态提示文字
-    var wrapper = _rpClaimCardEl.closest('.card-wrapper');
-    if (wrapper) {
-        var existing = wrapper.querySelector('.card-status-tip');
-        if (!existing) {
-            var tip = document.createElement('div');
-            tip.className = 'card-status-tip';
-            tip.textContent = senderRole === 'me' ? (roleName + ' 领取了你的红包') : ('你领取了 ' + roleName + ' 的红包');
-            wrapper.appendChild(tip);
-        }
+    cardElRef.style.opacity = '0.75';
+    // 持久化：更新 IndexedDB 中的消息状态
+    if (msgIdRef) {
+        try {
+            var msg = await chatListDb.messages.get(msgIdRef);
+            if (msg) {
+                var parsed = JSON.parse(msg.content);
+                parsed.status = 'claimed';
+                await chatListDb.messages.update(msgIdRef, { content: JSON.stringify(parsed) });
+            }
+        } catch(e) { console.error('红包状态持久化失败', e); }
     }
-    // 角色发的红包被用户领取时，在聊天流中插入系统小字
+    // 角色发的红包被用户领取时：增加钱包余额 + 插入系统小字
     if (senderRole !== 'me') {
+        // 增加钱包余额
+        if (amount && amount > 0) {
+            var walletEl = document.getElementById('text-wallet-bal');
+            if (walletEl) {
+                var curBal = parseFloat(walletEl.textContent.replace(/,/g, '')) || 0;
+                var newBal = curBal + amount;
+                walletEl.textContent = newBal.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                walletDb.kv.put({ key: 'walletBalance', value: newBal }).catch(function(e) { console.error('余额持久化失败', e); });
+                // 记录账单（收入）
+                _addBill('red_packet', '领取红包', amount, false, roleName + ' 发的红包');
+            }
+        }
         var container = document.getElementById('chat-msg-container');
         if (container) {
             var sysTip = document.createElement('div');
@@ -4050,8 +4229,14 @@ function _doClaimRp(senderRole, roleName) {
 
 // ====== 转账操作弹窗逻辑 ======
 var _tfActionCardEl = null;
+var _tfActionMsgId = null;
+var _tfActionAmount = 0;
 function openTfActionModal(cardEl, amount, desc, status, senderRole, roleName) {
     _tfActionCardEl = cardEl;
+    _tfActionAmount = parseFloat(amount) || 0;
+    // 从卡片所在行获取 msg.id（通过向上查找 .chat-msg-row 的 data-id）
+    var row = cardEl.closest('.chat-msg-row');
+    _tfActionMsgId = row ? parseInt(row.getAttribute('data-id')) || null : null;
     document.getElementById('tf-action-amount').textContent = '¥ ' + amount;
     document.getElementById('tf-action-desc').textContent = desc;
     var actionsEl = document.getElementById('tf-action-actions');
@@ -4096,10 +4281,13 @@ function closeTfActionModal() {
     document.getElementById('tf-action-modal').style.display = 'none';
     _tfActionCardEl = null;
 }
-function _doTfAction(newStatus, senderRole, roleName) {
+async function _doTfAction(newStatus, senderRole, roleName) {
+    var cardElRef = _tfActionCardEl;
+    var msgIdRef = _tfActionMsgId;
+    var amountRef = _tfActionAmount;
     closeTfActionModal();
-    if (!_tfActionCardEl) return;
-    var statusEl = _tfActionCardEl.querySelector('.tf-card-status');
+    if (!cardElRef) return;
+    var statusEl = cardElRef.querySelector('.tf-card-status');
     if (statusEl) {
         if (newStatus === 'received') {
             statusEl.textContent = '已收款';
@@ -4107,21 +4295,30 @@ function _doTfAction(newStatus, senderRole, roleName) {
         } else {
             statusEl.textContent = '已退回';
             statusEl.style.color = '#bbb';
-            _tfActionCardEl.style.opacity = '0.72';
+            cardElRef.style.opacity = '0.72';
         }
     }
-    var wrapper = _tfActionCardEl.closest('.card-wrapper');
-    if (wrapper) {
-        var existing = wrapper.querySelector('.card-status-tip');
-        if (!existing) {
-            var tip = document.createElement('div');
-            tip.className = 'card-status-tip';
-            if (newStatus === 'received') {
-                tip.textContent = senderRole === 'me' ? (roleName + ' 接收了你的转账') : ('你接收了 ' + roleName + ' 的转账');
-            } else {
-                tip.textContent = senderRole === 'me' ? (roleName + ' 退回了你的转账') : ('你退回了 ' + roleName + ' 的转账');
+    // 持久化：更新 IndexedDB 中的消息状态
+    if (msgIdRef) {
+        try {
+            var msg = await chatListDb.messages.get(msgIdRef);
+            if (msg) {
+                var parsed = JSON.parse(msg.content);
+                parsed.status = newStatus;
+                await chatListDb.messages.update(msgIdRef, { content: JSON.stringify(parsed) });
             }
-            wrapper.appendChild(tip);
+        } catch(e) { console.error('转账状态持久化失败', e); }
+    }
+    // 角色发的转账被用户接收时：增加钱包余额
+    if (senderRole !== 'me' && newStatus === 'received' && amountRef > 0) {
+        var walletEl = document.getElementById('text-wallet-bal');
+        if (walletEl) {
+            var curBal = parseFloat(walletEl.textContent.replace(/,/g, '')) || 0;
+            var newBal = curBal + amountRef;
+            walletEl.textContent = newBal.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            walletDb.kv.put({ key: 'walletBalance', value: newBal }).catch(function(e) { console.error('余额持久化失败', e); });
+            // 记录账单（收入）
+            _addBill('transfer', '接收转账', amountRef, false, roleName + ' 发的转账');
         }
     }
     // 角色发的转账被用户操作时，在聊天流中插入系统小字

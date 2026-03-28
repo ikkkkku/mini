@@ -2640,3 +2640,159 @@ img {
 .cd-toggle-sm.on .cd-toggle-thumb {
     left: 18px !important;
 }
+
+/* ====== 信息应用（SMS）专属样式 ====== */
+/* 信息列表项 */
+.sms-list-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f2f2f2;
+    cursor: pointer;
+    background: #fff;
+    transition: background 0.15s;
+    gap: 0;
+}
+.sms-list-item:active { background: #f7f7f7; }
+.sms-list-info {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.sms-list-name-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.sms-list-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+.sms-list-time {
+    font-size: 12px;
+    color: #999;
+    flex-shrink: 0;
+}
+.sms-list-preview {
+    font-size: 13px;
+    color: #8a8a8e;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 信息聊天气泡 - iOS风格，无头像 */
+.sms-msg-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 2px;
+}
+/* 用户消息：右对齐 → justify-content: flex-end */
+.sms-msg-row.sms-me {
+    justify-content: flex-end;
+}
+/* 角色消息：左对齐 → justify-content: flex-start */
+.sms-msg-row.sms-role {
+    justify-content: flex-start;
+}
+/* 多选模式下选中状态 */
+.sms-msg-row.sms-selected .sms-bubble {
+    opacity: 0.7;
+}
+/* 多选复选框 */
+.sms-msg-checkbox {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid #ccc;
+    flex-shrink: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #fff;
+}
+.sms-msg-checkbox.checked {
+    background: #007AFF;
+    border-color: #007AFF;
+}
+.sms-msg-checkbox.checked::after {
+    content: '';
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    margin-bottom: 2px;
+}
+/* 用户消息复选框在气泡左侧 */
+.sms-msg-row.sms-me .sms-msg-checkbox {
+    margin-right: 8px;
+    order: -1;
+}
+/* 角色消息复选框在气泡右侧 */
+.sms-msg-row.sms-role .sms-msg-checkbox {
+    margin-left: 8px;
+    order: 1;
+}
+
+/* 时间戳 */
+.sms-time-tip {
+    text-align: center;
+    font-size: 11px;
+    color: #8a8a8e;
+    margin: 10px 0 6px;
+    width: 100%;
+}
+
+/* 气泡 */
+.sms-bubble {
+    max-width: 72%;
+    padding: 9px 13px;
+    font-size: 15px;
+    line-height: 1.4;
+    word-break: break-word;
+    position: relative;
+}
+/* 我发的：蓝色气泡，右下角无圆角 */
+.sms-me .sms-bubble {
+    background: #007AFF;
+    color: #fff;
+    border-radius: 18px 18px 4px 18px;
+}
+/* 角色发的：灰色气泡，左下角无圆角 */
+.sms-role .sms-bubble {
+    background: #e9e9eb;
+    color: #1a1a1a;
+    border-radius: 18px 18px 18px 4px;
+}
+
+/* 正在输入指示器 */
+.sms-typing-bubble {
+    background: #e9e9eb;
+    border-radius: 18px 18px 18px 4px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 52px;
+}
+.sms-typing-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #8a8a8e;
+    animation: sms-typing-anim 1.2s infinite ease-in-out;
+}
+.sms-typing-dot:nth-child(1) { animation-delay: 0s; }
+.sms-typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.sms-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes sms-typing-anim {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30% { transform: translateY(-4px); opacity: 1; }
+}

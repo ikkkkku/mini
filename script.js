@@ -81,7 +81,7 @@ function _buildBankCardElement(cardData) {
     tempDiv.innerHTML = html;
     return tempDiv.firstChild;
 }
-const appIconNames = ["小说", "日记", "购物", "论坛", "WeChat", "纪念日", "遇恋", "世界书", "占位1", "闲鱼", "查手机", "情侣空间", "占位2", "占位3", "占位4", "占位5", "主题", "设置"];
+const appIconNames = ["小说", "日记", "购物", "论坛", "WeChat", "纪念日", "遇恋", "世界书", "占位1", "闲鱼", "查手机", "情侣空间", "信息", "占位3", "占位4", "占位5", "主题", "设置"];
 const themeIconGrid = document.getElementById('icon-theme-grid');
 const mainIcons = document.querySelectorAll('.icon-img img, .dock-icon img');
     // 修复电脑端：打开任意全屏应用前，先关闭其他所有全屏应用，防止多个 full-app-page 同时可见互相遮挡
@@ -1704,6 +1704,10 @@ document.getElementById('contact-edit-id').value = '';
         chats: 'id, contactId, lastTime, pinned',
         messages: '++id, contactId, sender, content, timeStr'
     });
+    chatListDb.version(4).stores({
+        chats: 'id, contactId, lastTime, pinned',
+        messages: '++id, contactId, sender, content, timeStr, source'
+    });
     function openChatTypeModal() {
         document.getElementById('chat-type-modal').style.display = 'flex';
     }
@@ -2106,7 +2110,13 @@ document.getElementById('contact-edit-id').value = '';
         }
         // 系统提示消息（红包/转账状态提示等）单独渲染，不走气泡逻辑
         if (msg.isSystemTip) {
-            return `<div class="msg-recalled-tip">${msg.content}</div>`;
+            // 修复掉格：isSystemTip 消息的 content 是 JSON 字符串，需解析出 content 字段
+            let _sysTipText = msg.content;
+            try {
+                const _sysParsed = JSON.parse(msg.content);
+                if (_sysParsed && _sysParsed.content) _sysTipText = _sysParsed.content;
+            } catch(e) {}
+            return `<div class="msg-recalled-tip">${_sysTipText}</div>`;
         }
         // 拉黑申请消息：使用专用渲染函数（带红色感叹号徽章）
         try {
@@ -2451,7 +2461,9 @@ document.getElementById('contact-edit-id').value = '';
         const container = document.getElementById('chat-msg-container');
         container.innerHTML = ''; 
         try {
-            const messages = await chatListDb.messages.where('contactId').equals(contactId).toArray();
+            // 【聊天隔离】WeChat聊天窗口只显示 source==='wechat' 或无source（旧数据兼容）的消息
+            const allMessages = await chatListDb.messages.where('contactId').equals(contactId).toArray();
+            const messages = allMessages.filter(m => !m.source || m.source === 'wechat');
             const myAvatar = contact.userAvatar || 'https://via.placeholder.com/100';
             const roleAvatar = contact.roleAvatar || 'https://via.placeholder.com/100';
             
@@ -2495,6 +2507,8 @@ document.getElementById('contact-edit-id').value = '';
         hideChatExtPanel();
         exitMultiSelectMode(); // 重置多选状态
         cancelQuote(); // 重置引用状态
+        // 进入聊天窗口时同步角色拉黑横幅状态
+        updateWechatBlockedBanner();
     }
 
     // ====== 展开全部历史聊天记录 ======
@@ -2730,6 +2744,17 @@ document.getElementById('contact-edit-id').value = '';
 
         // 同步拉黑按钮状态
         updateRpBlockBtn();
+        // 同步角色拉黑用户按钮状态
+        const rpRoleBlockLabel = document.getElementById('rp-role-block-user-label');
+        if (rpRoleBlockLabel && activeChatContact) {
+            if (activeChatContact.blockedByRole) {
+                rpRoleBlockLabel.textContent = '解除拉黑我';
+                rpRoleBlockLabel.style.color = '#888';
+            } else {
+                rpRoleBlockLabel.textContent = '角色拉黑我';
+                rpRoleBlockLabel.style.color = '#d96a6a';
+            }
+        }
 
         profileApp.style.display = 'flex';
 
@@ -3306,7 +3331,8 @@ document.getElementById('contact-edit-id').value = '';
                 sender: 'role',
                 content: content,
                 timeStr: timeStr,
-                quoteText: quoteText
+                quoteText: quoteText,
+                source: 'wechat'
             });
             const chat = await chatListDb.chats.where('contactId').equals(contact.id).first();
             if (chat) {
@@ -3343,9 +3369,8 @@ document.getElementById('contact-edit-id').value = '';
         const sendBtn = document.querySelector('.paw-send-line');
         const titleEl = document.getElementById('chat-current-name');
         const originalTitle = lockedContact.roleName;
-        // UI 上锁 (只在当前界面没被切走时才改UI)
+        // UI 上锁：只锁猫爪发送按钮，不锁输入框
         if (activeChatContact && activeChatContact.id === lockedContact.id) {
-            input.disabled = true;
             sendBtn.style.pointerEvents = 'none';
             sendBtn.style.opacity = '0.5';
             titleEl.textContent = '对方正在输入...';
@@ -3810,8 +3835,268 @@ ${langInstruction}
                 sendBtn.style.opacity = '1';
                 titleEl.textContent = originalTitle;
             }
+            // 角色回复完成后，AI自主判断是否拉黑用户（5%概率触发）
+            // 在 finally 中异步执行，不阻塞主流程
+            checkAutoRoleBlockUser(lockedContact).catch(e => console.error('自主拉黑判断失败', e));
         }
     }
+    // ====== 角色拉黑用户系统 ======
+    // 角色拉黑用户后，用户无法在 WeChat 界面发消息，只能通过信息(SMS)联系
+    // 角色根据心情和上下文数量决定是否解除拉黑
+
+    // 检查角色是否已拉黑用户（blockedByRole 字段）
+    function isBlockedByRole(contact) {
+        return !!(contact && contact.blockedByRole);
+    }
+
+    // 角色拉黑用户：标记 blockedByRole，并在聊天中插入系统提示
+    async function roleBlockUser(contact) {
+        if (!contact) return;
+        contact.blockedByRole = true;
+        await contactDb.contacts.put(contact);
+        if (activeChatContact && activeChatContact.id === contact.id) {
+            activeChatContact.blockedByRole = true;
+        }
+        // 更新聊天详情页中的拉黑状态显示
+        updateRoleBlockUserBtn();
+        renderChatList();
+        // 在聊天窗口中插入系统提示
+        const container = document.getElementById('chat-msg-container');
+        const chatWindow = document.getElementById('chat-window');
+        if (container && chatWindow && chatWindow.style.display === 'flex' && activeChatContact && activeChatContact.id === contact.id) {
+            const tip = document.createElement('div');
+            tip.className = 'msg-recalled-tip';
+            tip.innerHTML = `<span style="color:#e74c3c;font-weight:600;">${contact.roleName || '对方'}已将你拉黑，你无法在WeChat中发送消息。可通过「信息」继续联系。</span>`;
+            container.appendChild(tip);
+            container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        }
+        // 同时在聊天记录中持久化这条系统提示
+        try {
+            const timeStr = getAmPmTime();
+            await chatListDb.messages.add({
+                contactId: contact.id,
+                sender: 'system',
+                content: JSON.stringify({ type: 'role_block_user', content: `${contact.roleName || '对方'}已将你拉黑，你无法在WeChat中发送消息。可通过「信息」继续联系。` }),
+                timeStr: timeStr,
+                quoteText: '',
+                isSystemTip: true,
+                source: 'wechat'
+            });
+            const chat = await chatListDb.chats.where('contactId').equals(contact.id).first();
+            if (chat) await chatListDb.chats.update(chat.id, { lastTime: timeStr });
+        } catch(e) { console.error('拉黑系统提示持久化失败', e); }
+    }
+
+    // 角色解除拉黑用户
+    async function roleUnblockUser(contact) {
+        if (!contact) return;
+        contact.blockedByRole = false;
+        await contactDb.contacts.put(contact);
+        if (activeChatContact && activeChatContact.id === contact.id) {
+            activeChatContact.blockedByRole = false;
+        }
+        updateRoleBlockUserBtn();
+        renderChatList();
+        // 在聊天窗口中插入解除提示
+        const container = document.getElementById('chat-msg-container');
+        const chatWindow = document.getElementById('chat-window');
+        if (container && chatWindow && chatWindow.style.display === 'flex' && activeChatContact && activeChatContact.id === contact.id) {
+            const tip = document.createElement('div');
+            tip.className = 'msg-recalled-tip';
+            tip.innerHTML = `<span style="color:#27ae60;font-weight:600;">${contact.roleName || '对方'}已解除对你的拉黑，你可以在WeChat中正常发送消息了。</span>`;
+            container.appendChild(tip);
+            container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        }
+        // 持久化解除提示
+        try {
+            const timeStr = getAmPmTime();
+            await chatListDb.messages.add({
+                contactId: contact.id,
+                sender: 'system',
+                content: JSON.stringify({ type: 'role_unblock_user', content: `${contact.roleName || '对方'}已解除对你的拉黑，你可以在WeChat中正常发送消息了。` }),
+                timeStr: timeStr,
+                quoteText: '',
+                isSystemTip: true,
+                source: 'wechat'
+            });
+            const chat = await chatListDb.chats.where('contactId').equals(contact.id).first();
+            if (chat) await chatListDb.chats.update(chat.id, { lastTime: timeStr });
+        } catch(e) { console.error('解除拉黑系统提示持久化失败', e); }
+        // 核心修复：解除拉黑后立即更新WeChat聊天界面横幅（移除横幅、恢复输入框）
+        if (activeChatContact && activeChatContact.id === contact.id) {
+            updateWechatBlockedBanner();
+        }
+    }
+
+    // updateRoleBlockUserBtn 保留为空函数以防其他地方调用（不再需要UI按钮）
+    function updateRoleBlockUserBtn() {
+        // 角色拉黑用户按钮已移除，此函数保留为空
+    }
+
+    // ====== 角色自主拉黑用户系统（AI自动判断）======
+    // 每次角色在WeChat回复后，以5%概率触发AI判断是否拉黑用户
+    // 判断基于角色人设 + 最近对话内容
+    async function checkAutoRoleBlockUser(lockedContact) {
+        if (!lockedContact) return;
+        // 已经拉黑了就不再重复判断
+        if (isBlockedByRole(lockedContact)) return;
+        // 5%概率触发判断（避免每条消息都调用API）
+        if (Math.random() > 0.05) return;
+        try {
+            const apiUrl = await localforage.getItem('miffy_api_url');
+            const apiKey = await localforage.getItem('miffy_api_key');
+            const model = await localforage.getItem('miffy_api_model');
+            const temp = parseFloat(await localforage.getItem('miffy_api_temp')) || 0.7;
+            if (!apiUrl || !apiKey || !model) return;
+            const ctxRaw = await localforage.getItem('miffy_api_ctx');
+            const ctxLimit = (ctxRaw !== null && ctxRaw !== '') ? parseInt(ctxRaw) : 10;
+            const allMsgs = await chatListDb.messages.where('contactId').equals(lockedContact.id).toArray();
+            // 至少有5条消息才考虑拉黑（太少的对话不够判断）
+            if (allMsgs.length < 5) return;
+            const recentMsgs = (ctxLimit === 0) ? allMsgs : allMsgs.slice(-ctxLimit);
+            const chatText = recentMsgs.map(m => {
+                const sender = m.sender === 'me' ? '用户' : (lockedContact.roleName || '角色');
+                return sender + '：' + extractMsgPureText(m.content);
+            }).join('\n');
+            const detail = lockedContact.roleDetail || '';
+            const judgeMessages = [
+                {
+                    role: 'system',
+                    content: `你是${lockedContact.roleName || '角色'}，请根据以下最近的对话内容和你的角色设定，判断你现在是否想拉黑用户（即彻底不想在WeChat上和他说话，让他只能通过短信联系你）。\n角色设定：${detail}\n\n【判断规则】\n- 只有在用户严重惹怒你、冷漠伤害你、或者你的角色性格决定了在这种情况下会拉黑对方时，才回答YES\n- 大多数情况应该回答NO，拉黑是极端情况\n- 概率控制：只有约10%的极端情况下才应该拉黑\n- 只需回答 YES（拉黑）或 NO（不拉黑），不要有任何其他内容`
+                },
+                {
+                    role: 'user',
+                    content: `以下是最近的对话记录：\n\n${chatText}\n\n请问你是否想拉黑用户？（只回答YES或NO）`
+                }
+            ];
+            const cleanApiUrl = apiUrl.replace(/\/+$/, '').replace(/\/v1$/, '');
+            const endpoint = `${cleanApiUrl}/v1/chat/completions`;
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({ model, messages: judgeMessages, temperature: temp, max_tokens: 10 })
+            });
+            if (!response.ok) return;
+            const data = await response.json();
+            const answer = (data.choices[0].message.content || '').trim().toUpperCase();
+            if (answer.startsWith('YES') || answer === 'Y') {
+                // 角色决定拉黑用户
+                // 先刷新联系人数据（防止使用过时的对象）
+                const freshContact = await contactDb.contacts.get(lockedContact.id);
+                if (freshContact && !isBlockedByRole(freshContact)) {
+                    await roleBlockUser(freshContact);
+                    // 更新锁定联系人的状态
+                    lockedContact.blockedByRole = true;
+                    // 更新 activeChatContact
+                    if (activeChatContact && activeChatContact.id === lockedContact.id) {
+                        activeChatContact.blockedByRole = true;
+                        updateWechatBlockedBanner();
+                    }
+                }
+            }
+        } catch(e) {
+            console.error('角色自主拉黑判断失败', e);
+        }
+    }
+
+    // 在 WeChat 聊天输入区显示被角色拉黑的状态（修改输入框占位文字，不显示横幅）
+    function updateWechatBlockedBanner() {
+        const input = document.getElementById('chat-input-main');
+        if (!input) return;
+        if (!activeChatContact || !isBlockedByRole(activeChatContact)) {
+            // 未被拉黑：恢复正常占位文字
+            input.placeholder = '输入消息...';
+            input.disabled = false;
+            input.style.color = '';
+            input.style.cursor = '';
+        } else {
+            // 被拉黑：锁定输入框，修改占位文字
+            const displayName = activeChatContact.roleName || '对方';
+            input.placeholder = `${displayName}已将你拉黑，无法发送`;
+            input.disabled = true;
+            input.style.color = '#e74c3c';
+            input.style.cursor = 'not-allowed';
+        }
+    }
+
+    // 角色通过 SMS 与用户对话后，根据心情和上下文数量决定是否解除拉黑
+    // 此函数在 SMS 角色回复完成后调用
+    async function checkRoleUnblockAfterSmsReply(contact, apiUrl, apiKey, model, temp, ctxLimit) {
+        if (!contact || !isBlockedByRole(contact)) return;
+        // 获取 SMS 上下文数量
+        const allSmsMsgs = await chatListDb.messages.where('contactId').equals(contact.id).toArray();
+        const smsMsgs = allSmsMsgs.filter(m => m.source === 'sms' || !m.source);
+        const smsCount = smsMsgs.length;
+        // 至少要有3条 SMS 消息才考虑解除拉黑
+        if (smsCount < 3) return;
+        if (!apiUrl || !apiKey || !model) return;
+        // 构造判断 prompt：让角色根据心情和对话内容决定是否解除拉黑
+        const ctxMessages = (ctxLimit === 0) ? smsMsgs : smsMsgs.slice(-ctxLimit);
+        const chatText = ctxMessages.map(m => {
+            const sender = m.sender === 'me' ? '用户' : (contact.roleName || '角色');
+            return sender + '：' + extractMsgPureText(m.content);
+        }).join('\n');
+        const detail = contact.roleDetail || '';
+        const judgeMessages = [
+            {
+                role: 'system',
+                content: `你是${contact.roleName || '角色'}，你现在处于"拉黑了用户"的状态。请根据以下对话内容和你的角色心情，判断你是否愿意解除对用户的拉黑。\n角色设定：${detail}\n\n【判断规则】\n- 如果用户态度诚恳、道歉或表达了真诚的情感，你可能会解除拉黑\n- 如果用户态度冷漠、无所谓或没有任何改变，你应该继续保持拉黑\n- 你的决定完全基于角色心情和对话内容\n- 只需回答 YES（解除拉黑）或 NO（继续拉黑），不要有任何其他内容`
+            },
+            {
+                role: 'user',
+                content: `以下是你被拉黑后通过短信的对话记录（共${smsCount}条）：\n\n${chatText}\n\n请问你是否愿意解除对用户的拉黑？（只回答YES或NO）`
+            }
+        ];
+        try {
+            const cleanApiUrl = apiUrl.replace(/\/+$/, '').replace(/\/v1$/, '');
+            const endpoint = `${cleanApiUrl}/v1/chat/completions`;
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({ model, messages: judgeMessages, temperature: temp, max_tokens: 10 })
+            });
+            if (!response.ok) return;
+            const data = await response.json();
+            const answer = (data.choices[0].message.content || '').trim().toUpperCase();
+            if (answer.startsWith('YES') || answer === 'Y') {
+                // 角色决定解除拉黑
+                await roleUnblockUser(contact);
+                // 在 WeChat 聊天中发送解除拉黑通知消息（而非SMS）
+                const timeStr = getAmPmTime();
+                const unblockMsg = `我已经解除了对你的拉黑，你现在可以在WeChat上给我发消息了。`;
+                const newMsgId = await chatListDb.messages.add({
+                    contactId: contact.id,
+                    sender: 'role',
+                    content: unblockMsg,
+                    timeStr: timeStr,
+                    quoteText: '',
+                    source: 'wechat'
+                });
+                const chat = await chatListDb.chats.where('contactId').equals(contact.id).first();
+                if (chat) await chatListDb.chats.update(chat.id, { lastTime: timeStr });
+                renderChatList();
+                // 如果 WeChat 聊天窗口打开，实时渲染这条消息
+                const chatWin = document.getElementById('chat-window');
+                if (chatWin && chatWin.style.display === 'flex' && activeChatContact && activeChatContact.id === contact.id) {
+                    const container = document.getElementById('chat-msg-container');
+                    if (container) {
+                        const myAvatar = contact.userAvatar || 'https://via.placeholder.com/100';
+                        const roleAvatar = contact.roleAvatar || 'https://via.placeholder.com/100';
+                        const msgObj = { id: newMsgId, sender: 'role', content: unblockMsg, timeStr, quoteText: '' };
+                        container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
+                        bindMsgEvents();
+                        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+                    }
+                    updateWechatBlockedBanner();
+                } else {
+                    // WeChat 聊天窗口未打开，显示横幅通知
+                    const roleAvatar = contact.roleAvatar || '';
+                    showNotificationBanner(roleAvatar, contact.roleName || '对方', unblockMsg, timeStr, contact.id);
+                }
+            }
+        } catch(e) { console.error('角色解除拉黑判断失败', e); }
+    }
+
     async function performSendMessage() {
         if (isReplying) return;
         const input = document.getElementById('chat-input-main');
@@ -3821,6 +4106,17 @@ ${langInstruction}
             return;
         }
         if (!content || !activeChatContact) return;
+        // 【注意】如果角色已拉黑用户，WeChat 中无法发消息
+        if (isBlockedByRole(activeChatContact)) {
+            // 显示提示，不发送
+            const banner = document.getElementById('role-blocked-banner');
+            if (banner) {
+                banner.style.animation = 'none';
+                banner.style.background = 'rgba(255,240,240,0.97)';
+                setTimeout(() => { if(banner) banner.style.background = 'rgba(255,255,255,0.97)'; }, 600);
+            }
+            return;
+        }
         // 【注意】如果联系人处于被拉黑状态，发消息不触发自动回复
         const _contactIsBlocked = !!activeChatContact.blocked;
         const container = document.getElementById('chat-msg-container');
@@ -3849,7 +4145,8 @@ ${langInstruction}
                 sender: 'me',
                 content: content,
                 timeStr: timeStr,
-                quoteText: quoteText
+                quoteText: quoteText,
+                source: 'wechat'
             });
             const chat = await chatListDb.chats.where('contactId').equals(activeChatContact.id).first();
             if (chat) {
@@ -5006,13 +5303,26 @@ async function _doClaimRp(senderRole, roleName, amount) {
                 _addBill('red_packet', '领取红包', amount, false, roleName + ' 发的红包');
             }
         }
+        var tipText_rp = '你领取了 ' + roleName + ' 的红包';
         var container = document.getElementById('chat-msg-container');
         if (container) {
             var sysTip = document.createElement('div');
             sysTip.className = 'msg-recalled-tip';
-            sysTip.textContent = '你领取了 ' + roleName + ' 的红包';
+            sysTip.textContent = tipText_rp;
             container.appendChild(sysTip);
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        }
+        // 持久化系统小字到 IndexedDB
+        if (msgIdRef && activeChatContact) {
+            chatListDb.messages.add({
+                contactId: activeChatContact.id,
+                sender: 'system',
+                content: JSON.stringify({ type: 'rp_claimed_tip', content: tipText_rp }),
+                timeStr: getAmPmTime(),
+                quoteText: '',
+                isSystemTip: true,
+                source: 'wechat'
+            }).catch(function(e) { console.error('红包提示持久化失败', e); });
         }
     }
 }
@@ -5116,17 +5426,26 @@ async function _doTfAction(newStatus, senderRole, roleName) {
     }
     // 角色发的转账被用户操作时，在聊天流中插入系统小字
     if (senderRole !== 'me') {
+        var tipText_tf = newStatus === 'received' ? ('你接收了 ' + roleName + ' 的转账') : ('你退回了 ' + roleName + ' 的转账');
         var container = document.getElementById('chat-msg-container');
         if (container) {
             var sysTip = document.createElement('div');
             sysTip.className = 'msg-recalled-tip';
-            if (newStatus === 'received') {
-                sysTip.textContent = '你接收了 ' + roleName + ' 的转账';
-            } else {
-                sysTip.textContent = '你退回了 ' + roleName + ' 的转账';
-            }
+            sysTip.textContent = tipText_tf;
             container.appendChild(sysTip);
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        }
+        // 持久化系统小字到 IndexedDB
+        if (msgIdRef && activeChatContact) {
+            chatListDb.messages.add({
+                contactId: activeChatContact.id,
+                sender: 'system',
+                content: JSON.stringify({ type: 'tf_action_tip', content: tipText_tf }),
+                timeStr: getAmPmTime(),
+                quoteText: '',
+                isSystemTip: true,
+                source: 'wechat'
+            }).catch(function(e) { console.error('转账提示持久化失败', e); });
         }
     }
 }
@@ -6025,6 +6344,9 @@ function _renderBills() {
             }
         }
 
+        // 同步角色拉黑用户按钮状态
+        updateRoleBlockUserBtn();
+
         app.style.display = 'flex';
     };
 
@@ -6675,3 +6997,713 @@ async function blockListAgree(contactId) {
 document.addEventListener('DOMContentLoaded', function() {
     updateBlockRequestBadge();
 });
+
+// ====== 信息应用（SMS）功能逻辑 ======
+(function() {
+    // 信息应用独立的数据库（与WeChat聊天共用 chatListDb/contactDb，但界面完全独立）
+    // activeSmsContact: 当前信息聊天的联系人
+    var activeSmsContact = null;
+    var smsIsReplying = false;
+
+    // 获取12小时制时间字符串（与WeChat一致）
+    function getSmsTime() {
+        var now = new Date();
+        var h = now.getHours();
+        var m = now.getMinutes();
+        var ampm = h >= 12 ? '下午' : '上午';
+        h = h % 12 || 12;
+        return ampm + ' ' + h + ':' + (m < 10 ? '0' + m : m);
+    }
+
+    // 打开信息应用
+    var smsBtnEl = document.getElementById('app-btn-sms');
+    if (smsBtnEl) {
+        smsBtnEl.onclick = function(e) {
+            e.stopPropagation();
+            openSmsApp();
+        };
+    }
+
+    function openSmsApp() {
+        openApp('sms-app');
+        // 显示列表页，隐藏聊天页
+        document.getElementById('sms-tab-list').style.display = 'flex';
+        document.getElementById('sms-chat-window').style.display = 'none';
+        renderSmsList();
+    }
+
+    window.closeSmsApp = function() {
+        document.getElementById('sms-app').style.display = 'none';
+    };
+
+    // 渲染信息列表（只显示有 SMS 消息的联系人）
+    async function renderSmsList() {
+        var container = document.getElementById('sms-list-container');
+        if (!container) return;
+        try {
+            var chats = await chatListDb.chats.toArray();
+            // 置顶排前面
+            chats.sort(function(a, b) { return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0); });
+
+            // 过滤：只保留有 SMS 消息（source === 'sms'）的联系人，严格排除WeChat消息
+            var smsChats = [];
+            for (var i = 0; i < chats.length; i++) {
+                var chat = chats[i];
+                var smsMsgs = await chatListDb.messages.where('contactId').equals(chat.contactId).toArray();
+                var hasSms = smsMsgs.some(function(m) { return m.source === 'sms'; });
+                if (hasSms) smsChats.push(chat);
+            }
+
+            if (smsChats.length === 0) {
+                container.innerHTML = '<div id="sms-no-msg-tip" style="color:#bbb; font-size:13px; margin-top:120px; text-align:center;">暂无短信</div>';
+                return;
+            }
+            container.innerHTML = '';
+
+            for (var i = 0; i < smsChats.length; i++) {
+                var chat = smsChats[i];
+                var contact = await contactDb.contacts.get(chat.contactId);
+                if (!contact) continue;
+                // 只取 SMS 消息作为预览
+                var msgs = await chatListDb.messages.where('contactId').equals(contact.id).toArray();
+                var smsMsgsOnly = msgs.filter(function(m) { return m.source === 'sms' || !m.source; });
+                var lastText = '点击发送短信...';
+                if (smsMsgsOnly && smsMsgsOnly.length > 0) {
+                    var lastMsg = smsMsgsOnly[smsMsgsOnly.length - 1];
+                    if (lastMsg.isRecalled) {
+                        lastText = '撤回了一条消息';
+                    } else {
+                        lastText = extractMsgPureText(lastMsg.content);
+                    }
+                }
+                var displayName = contact.roleName || '未命名';
+                try {
+                    var remark = await localforage.getItem('cd_settings_' + contact.id + '_remark');
+                    if (remark && remark !== '未设置') displayName = remark;
+                } catch(e2) {}
+
+                var item = document.createElement('div');
+                item.className = 'sms-list-item';
+                var isChecked = selectedSmsContactIds.has(contact.id);
+                // 多选模式：左侧显示复选框
+                var checkboxHtml = smsListMultiSelectMode
+                    ? '<div style="width:22px;height:22px;border-radius:50%;border:2px solid ' + (isChecked ? '#007AFF' : '#ccc') + ';background:' + (isChecked ? '#007AFF' : 'transparent') + ';flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-right:10px;">' +
+                      (isChecked ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>' : '') +
+                      '</div>'
+                    : '';
+                item.innerHTML =
+                    checkboxHtml +
+                    '<div class="sms-list-info">' +
+                        '<div class="sms-list-name-row">' +
+                            '<span class="sms-list-name">' + displayName + '</span>' +
+                            '<span class="sms-list-time">' + (chat.lastTime || '') + '</span>' +
+                        '</div>' +
+                        '<div class="sms-list-preview">' + lastText + '</div>' +
+                    '</div>';
+                (function(cid) {
+                    item.onclick = function() {
+                        if (smsListMultiSelectMode) {
+                            if (selectedSmsContactIds.has(cid)) {
+                                selectedSmsContactIds.delete(cid);
+                            } else {
+                                selectedSmsContactIds.add(cid);
+                            }
+                            renderSmsList();
+                        } else {
+                            enterSmsChat(cid);
+                        }
+                    };
+                })(contact.id);
+                container.appendChild(item);
+            }
+        } catch(e) {
+            console.error('渲染信息列表失败', e);
+        }
+    }
+
+    // 打开新建短信联系人选择
+    window.openSmsNewChatSelect = async function() {
+        var modal = document.getElementById('sms-new-chat-modal');
+        var listEl = document.getElementById('sms-new-chat-list');
+        listEl.innerHTML = '';
+        try {
+            var contacts = await contactDb.contacts.toArray();
+            if (contacts.length === 0) {
+                listEl.innerHTML = '<div style="color:#bbb; font-size:13px; text-align:center; margin-top:20px;">暂无联系人，请先在WeChat中添加</div>';
+            } else {
+                contacts.forEach(function(c) {
+                    var item = document.createElement('div');
+                    item.style.cssText = 'background:#f9f9f9; border-radius:12px; padding:10px 15px; display:flex; align-items:center; gap:12px; cursor:pointer; border:1px solid #eee;';
+                    item.onclick = function() {
+                        closeSmsNewChatSelect();
+                        _ensureSmsChatExists(c.id);
+                    };
+                    var avatarHtml = c.roleAvatar
+                        ? '<img src="' + c.roleAvatar + '" style="width:100%;height:100%;object-fit:cover;">'
+                        : '<span style="color:#ccc;font-size:12px;">无</span>';
+                    item.innerHTML =
+                        '<div style="width:40px;height:40px;border-radius:50%;background:#fff;overflow:hidden;flex-shrink:0;display:flex;justify-content:center;align-items:center;border:1px solid #f0f0f0;">' +
+                            avatarHtml +
+                        '</div>' +
+                        '<div style="font-size:14px;font-weight:500;color:#333;">' + (c.roleName || '未命名') + '</div>';
+                    listEl.appendChild(item);
+                });
+            }
+        } catch(e) { console.error(e); }
+        modal.style.display = 'flex';
+    };
+
+    window.closeSmsNewChatSelect = function() {
+        document.getElementById('sms-new-chat-modal').style.display = 'none';
+    };
+
+    async function _ensureSmsChatExists(contactId) {
+        try {
+            var existing = await chatListDb.chats.where('contactId').equals(contactId).first();
+            if (!existing) {
+                await chatListDb.chats.add({
+                    id: Date.now().toString(),
+                    contactId: contactId,
+                    lastTime: getSmsTime()
+                });
+            }
+            enterSmsChat(contactId);
+        } catch(e) { console.error(e); }
+    }
+
+    // 进入信息聊天窗口
+    async function enterSmsChat(contactId) {
+        var contact = await contactDb.contacts.get(contactId);
+        if (!contact) return;
+        activeSmsContact = contact;
+
+        // 显示聊天窗口，隐藏列表
+        document.getElementById('sms-tab-list').style.display = 'none';
+        var chatWin = document.getElementById('sms-chat-window');
+        chatWin.style.display = 'flex';
+
+        // 设置顶部联系人名
+        var displayName = contact.roleName || '联系人';
+        try {
+            var remark = await localforage.getItem('cd_settings_' + contact.id + '_remark');
+            if (remark && remark !== '未设置') displayName = remark;
+        } catch(e) {}
+        document.getElementById('sms-chat-name').textContent = displayName;
+        document.getElementById('sms-chat-sub').textContent = '短信';
+
+        // 渲染历史消息
+        var container = document.getElementById('sms-msg-container');
+        container.innerHTML = '';
+        try {
+            // 【聊天隔离】信息聊天窗口只显示 source==='sms' 的消息（旧数据无source的也显示，兼容）
+            var allSmsMessages = await chatListDb.messages.where('contactId').equals(contactId).toArray();
+            var messages = allSmsMessages.filter(function(m) { return m.source === 'sms' || !m.source; });
+            var lastTimeTip = '';
+            messages.forEach(function(msg) {
+                if (msg.isRecalled) return;
+                // 时间戳（每隔一段时间显示一次）
+                if (msg.timeStr && msg.timeStr !== lastTimeTip) {
+                    lastTimeTip = msg.timeStr;
+                    var tipEl = document.createElement('div');
+                    tipEl.className = 'sms-time-tip';
+                    tipEl.textContent = msg.timeStr;
+                    container.appendChild(tipEl);
+                }
+                var rowEl = _buildSmsBubble(msg);
+                if (rowEl) container.appendChild(rowEl);
+            });
+        } catch(e) { console.error('加载短信历史失败', e); }
+
+        // 清空输入框
+        var inputEl = document.getElementById('sms-input-field');
+        if (inputEl) inputEl.value = '';
+
+        // 滚动到底部
+        requestAnimationFrame(function() { container.scrollTop = container.scrollHeight; });
+        setTimeout(function() { container.scrollTop = container.scrollHeight; }, 200);
+
+        // 绑定长按事件
+        _bindSmsBubbleEvents();
+        // 重置多选状态
+        smsChatMultiSelectMode = false;
+        selectedSmsMsgIds.clear();
+        var bar = document.getElementById('sms-chat-multiselect-bar');
+        if (bar) bar.style.display = 'none';
+        var inputArea = document.querySelector('#sms-chat-window > div:last-child');
+        if (inputArea) inputArea.style.display = 'flex';
+    }
+
+    // ====== 信息应用：聊天气泡多选功能（完全重写） ======
+    var smsChatMultiSelectMode = false;
+    var selectedSmsMsgIds = new Set();
+    var smsLongPressTimer = null;
+
+    // 进入聊天气泡多选模式
+    function enterSmsChatMultiSelect(msgId) {
+        smsChatMultiSelectMode = true;
+        selectedSmsMsgIds.clear();
+        if (msgId !== undefined) selectedSmsMsgIds.add(msgId);
+        // 显示底部操作栏
+        var bar = document.getElementById('sms-chat-multiselect-bar');
+        if (bar) bar.style.display = 'flex';
+        // 隐藏输入区（最后一个子元素）
+        var chatWin = document.getElementById('sms-chat-window');
+        if (chatWin) {
+            var inputArea = chatWin.lastElementChild;
+            if (inputArea && inputArea.id !== 'sms-msg-container' && inputArea.id !== 'sms-chat-multiselect-bar') {
+                inputArea.style.display = 'none';
+            }
+        }
+        _updateSmsBubbleSelection();
+    }
+
+    // 退出聊天气泡多选模式
+    function exitSmsChatMultiSelect() {
+        smsChatMultiSelectMode = false;
+        selectedSmsMsgIds.clear();
+        var bar = document.getElementById('sms-chat-multiselect-bar');
+        if (bar) bar.style.display = 'none';
+        // 显示输入区
+        var chatWin = document.getElementById('sms-chat-window');
+        if (chatWin) {
+            var inputArea = chatWin.lastElementChild;
+            if (inputArea && inputArea.id !== 'sms-msg-container' && inputArea.id !== 'sms-chat-multiselect-bar') {
+                inputArea.style.display = 'flex';
+            }
+        }
+        _updateSmsBubbleSelection();
+    }
+
+    window.exitSmsChatMultiSelect = exitSmsChatMultiSelect;
+
+    window.smsSelectAllMsgs = async function() {
+        if (!activeSmsContact) return;
+        var allMsgs = await chatListDb.messages.where('contactId').equals(activeSmsContact.id).toArray();
+        var smsMsgs = allMsgs.filter(function(m) { return m.source === 'sms' || !m.source; });
+        var visibleIds = smsMsgs.map(function(m) { return m.id; });
+        if (selectedSmsMsgIds.size === visibleIds.length) {
+            selectedSmsMsgIds.clear();
+        } else {
+            selectedSmsMsgIds.clear();
+            visibleIds.forEach(function(id) { selectedSmsMsgIds.add(id); });
+        }
+        _updateSmsBubbleSelection();
+    };
+
+    window.smsDeleteSelectedMsgs = async function() {
+        if (selectedSmsMsgIds.size === 0) return;
+        if (!confirm('确定要删除选中的 ' + selectedSmsMsgIds.size + ' 条消息吗？\n（相关记忆总结也将同步删除）')) return;
+        try {
+            await chatListDb.messages.bulkDelete(Array.from(selectedSmsMsgIds));
+        } catch(e) { console.error('删除短信失败', e); }
+        // 同步删除该联系人的记忆总结（summary_history）
+        if (activeSmsContact) {
+            try {
+                var memoryKey = 'cd_settings_' + activeSmsContact.id + '_summary_history';
+                await localforage.removeItem(memoryKey);
+            } catch(e) { console.error('删除记忆总结失败', e); }
+        }
+        exitSmsChatMultiSelect();
+        // 重新渲染聊天窗口
+        if (activeSmsContact) {
+            var contactId = activeSmsContact.id;
+            var container = document.getElementById('sms-msg-container');
+            container.innerHTML = '';
+            var allSmsMessages = await chatListDb.messages.where('contactId').equals(contactId).toArray();
+            var messages = allSmsMessages.filter(function(m) { return m.source === 'sms' || !m.source; });
+            var lastTimeTip = '';
+            messages.forEach(function(msg) {
+                if (msg.isRecalled) return;
+                if (msg.timeStr && msg.timeStr !== lastTimeTip) {
+                    lastTimeTip = msg.timeStr;
+                    var tipEl = document.createElement('div');
+                    tipEl.className = 'sms-time-tip';
+                    tipEl.textContent = msg.timeStr;
+                    container.appendChild(tipEl);
+                }
+                var rowEl = _buildSmsBubble(msg);
+                if (rowEl) container.appendChild(rowEl);
+            });
+            _bindSmsBubbleEvents();
+        }
+    };
+
+    // 更新气泡选中状态（显示/隐藏复选框，更新勾选状态）
+    function _updateSmsBubbleSelection() {
+        var rows = document.querySelectorAll('#sms-msg-container .sms-msg-row[data-msg-id]');
+        rows.forEach(function(row) {
+            var id = parseInt(row.getAttribute('data-msg-id'));
+            var cb = row.querySelector('.sms-msg-checkbox');
+            if (!cb) return;
+            if (smsChatMultiSelectMode) {
+                // 显示复选框
+                cb.style.display = 'flex';
+                if (selectedSmsMsgIds.has(id)) {
+                    row.classList.add('sms-selected');
+                    cb.classList.add('checked');
+                } else {
+                    row.classList.remove('sms-selected');
+                    cb.classList.remove('checked');
+                }
+            } else {
+                // 隐藏复选框
+                cb.style.display = 'none';
+                row.classList.remove('sms-selected');
+                cb.classList.remove('checked');
+            }
+        });
+    }
+
+    // 构建单条短信气泡
+    // 复选框位置：用户消息（右对齐）在气泡左侧，角色消息（左对齐）在气泡右侧
+    function _buildSmsBubble(msg) {
+        if (!msg || msg.isRecalled) return null;
+        var isMe = msg.sender === 'me';
+        var text = extractMsgPureText(msg.content);
+        if (!text) return null;
+
+        var rowEl = document.createElement('div');
+        rowEl.className = 'sms-msg-row ' + (isMe ? 'sms-me' : 'sms-role');
+        rowEl.setAttribute('data-msg-id', msg.id);
+
+        // 复选框（默认隐藏，多选模式下通过 _updateSmsBubbleSelection 显示）
+        var cbEl = document.createElement('div');
+        cbEl.className = 'sms-msg-checkbox';
+        // 不设 inline style，完全由 CSS 控制
+
+        var bubbleEl = document.createElement('div');
+        bubbleEl.className = 'sms-bubble';
+        bubbleEl.textContent = text;
+
+        // 用户消息（sms-me，右对齐）：复选框 order:-1 → 在气泡左侧
+        // 角色消息（sms-role，左对齐）：复选框 order:1 → 在气泡右侧
+        // CSS 中已通过 order 属性控制，这里直接追加即可
+        rowEl.appendChild(cbEl);
+        rowEl.appendChild(bubbleEl);
+
+        return rowEl;
+    }
+
+    // 绑定短信气泡长按事件（长按进入多选，多选模式下点击切换选中）
+    function _bindSmsBubbleEvents() {
+        var rows = document.querySelectorAll('#sms-msg-container .sms-msg-row[data-msg-id]');
+        rows.forEach(function(row) {
+            var msgId = parseInt(row.getAttribute('data-msg-id'));
+            // 移除旧事件防重复
+            row.removeEventListener('touchstart', row._smsTs);
+            row.removeEventListener('touchend', row._smsTe);
+            row.removeEventListener('touchmove', row._smsTm);
+            row.removeEventListener('contextmenu', row._smsCm);
+            row.removeEventListener('click', row._smsCk);
+
+            row._smsTs = function(e) {
+                if (smsChatMultiSelectMode) return;
+                if (smsLongPressTimer) clearTimeout(smsLongPressTimer);
+                smsLongPressTimer = setTimeout(function() {
+                    smsLongPressTimer = null;
+                    enterSmsChatMultiSelect(msgId);
+                    _bindSmsBubbleEvents();
+                }, 600);
+            };
+            row._smsTe = function() {
+                if (smsLongPressTimer) { clearTimeout(smsLongPressTimer); smsLongPressTimer = null; }
+            };
+            row._smsTm = function() {
+                if (smsLongPressTimer) { clearTimeout(smsLongPressTimer); smsLongPressTimer = null; }
+            };
+            row._smsCm = function(e) {
+                e.preventDefault();
+                if (!smsChatMultiSelectMode) {
+                    enterSmsChatMultiSelect(msgId);
+                    _bindSmsBubbleEvents();
+                }
+            };
+            row._smsCk = function(e) {
+                if (!smsChatMultiSelectMode) return;
+                e.stopPropagation();
+                if (selectedSmsMsgIds.has(msgId)) {
+                    selectedSmsMsgIds.delete(msgId);
+                } else {
+                    selectedSmsMsgIds.add(msgId);
+                }
+                _updateSmsBubbleSelection();
+            };
+
+            row.addEventListener('touchstart', row._smsTs, {passive: true});
+            row.addEventListener('touchend', row._smsTe);
+            row.addEventListener('touchmove', row._smsTm, {passive: true});
+            row.addEventListener('contextmenu', row._smsCm);
+            row.addEventListener('click', row._smsCk);
+        });
+    }
+
+    // ====== 信息应用：列表多选功能 ======
+    var smsListMultiSelectMode = false;
+    var selectedSmsContactIds = new Set();
+
+    window.toggleSmsListMultiSelect = function() {
+        smsListMultiSelectMode = !smsListMultiSelectMode;
+        selectedSmsContactIds.clear();
+        var bar = document.getElementById('sms-list-multiselect-bar');
+        if (bar) bar.style.display = smsListMultiSelectMode ? 'flex' : 'none';
+        renderSmsList();
+    };
+
+    window.smsListSelectAll = async function() {
+        var chats = await chatListDb.chats.toArray();
+        if (selectedSmsContactIds.size === chats.length) {
+            selectedSmsContactIds.clear();
+        } else {
+            chats.forEach(function(c) { selectedSmsContactIds.add(c.contactId); });
+        }
+        renderSmsList();
+    };
+
+    window.smsListDeleteSelected = async function() {
+        if (selectedSmsContactIds.size === 0) return;
+        if (!confirm('确定要删除选中的 ' + selectedSmsContactIds.size + ' 个对话的短信记录吗？')) return;
+        try {
+            // 【重要】只删除 SMS 消息记录，不删除 chats 表中的聊天条目（WeChat 也在用）
+            for (var contactId of selectedSmsContactIds) {
+                var msgs = await chatListDb.messages.where('contactId').equals(contactId).toArray();
+                var smsMsgIds = msgs.filter(function(m) { return m.source === 'sms'; }).map(function(m) { return m.id; });
+                if (smsMsgIds.length > 0) await chatListDb.messages.bulkDelete(smsMsgIds);
+            }
+        } catch(e) { console.error('删除短信消息失败', e); }
+        selectedSmsContactIds.clear();
+        smsListMultiSelectMode = false;
+        var bar = document.getElementById('sms-list-multiselect-bar');
+        if (bar) bar.style.display = 'none';
+        renderSmsList();
+    };
+
+    // 关闭信息聊天窗口，返回列表
+    window.closeSmsChat = function() {
+        document.getElementById('sms-chat-window').style.display = 'none';
+        document.getElementById('sms-tab-list').style.display = 'flex';
+        activeSmsContact = null;
+        renderSmsList();
+    };
+
+    // 发送短信
+    window.smsSendMessage = async function() {
+        if (smsIsReplying || !activeSmsContact) return;
+        var inputEl = document.getElementById('sms-input-field');
+        var content = inputEl ? inputEl.value.trim() : '';
+        if (!content) return;
+
+        var timeStr = getSmsTime();
+        var container = document.getElementById('sms-msg-container');
+
+        // 存入数据库
+        try {
+            var newMsgId = await chatListDb.messages.add({
+                contactId: activeSmsContact.id,
+                sender: 'me',
+                content: content,
+                timeStr: timeStr,
+                quoteText: '',
+                source: 'sms'
+            });
+            // 更新聊天列表时间
+            var chat = await chatListDb.chats.where('contactId').equals(activeSmsContact.id).first();
+            if (chat) {
+                await chatListDb.chats.update(chat.id, { lastTime: timeStr });
+            } else {
+                await chatListDb.chats.add({
+                    id: Date.now().toString(),
+                    contactId: activeSmsContact.id,
+                    lastTime: timeStr
+                });
+            }
+        } catch(e) { console.error('短信存储失败', e); return; }
+
+        // 渲染气泡
+        var timeTip = document.createElement('div');
+        timeTip.className = 'sms-time-tip';
+        timeTip.textContent = timeStr;
+        container.appendChild(timeTip);
+
+        var rowEl = document.createElement('div');
+        rowEl.className = 'sms-msg-row sms-me';
+        var bubbleEl = document.createElement('div');
+        bubbleEl.className = 'sms-bubble';
+        bubbleEl.textContent = content;
+        rowEl.appendChild(bubbleEl);
+        container.appendChild(rowEl);
+
+        // 清空输入框
+        if (inputEl) inputEl.value = '';
+        container.scrollTop = container.scrollHeight;
+
+        // 触发角色回复
+        await _smsTriggerRoleReply(activeSmsContact, content, timeStr);
+    };
+
+    // 回车发送
+    document.addEventListener('DOMContentLoaded', function() {
+        var smsInput = document.getElementById('sms-input-field');
+        if (smsInput) {
+            smsInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    window.smsSendMessage();
+                }
+            });
+            // 自动调整高度
+            smsInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 80) + 'px';
+            });
+        }
+    });
+
+    // 信息应用：触发角色回复（调用API，纯文本，简洁风格）
+    async function _smsTriggerRoleReply(lockedContact, userText, userTimeStr) {
+        if (smsIsReplying) return;
+        smsIsReplying = true;
+
+        var container = document.getElementById('sms-msg-container');
+
+        // 显示"正在输入"气泡
+        var typingRow = document.createElement('div');
+        typingRow.className = 'sms-msg-row sms-role';
+        typingRow.id = 'sms-typing-indicator';
+        var typingBubble = document.createElement('div');
+        typingBubble.className = 'sms-typing-bubble';
+        typingBubble.innerHTML = '<div class="sms-typing-dot"></div><div class="sms-typing-dot"></div><div class="sms-typing-dot"></div>';
+        typingRow.appendChild(typingBubble);
+        container.appendChild(typingRow);
+        container.scrollTop = container.scrollHeight;
+
+        try {
+            var apiUrl = await localforage.getItem('miffy_api_url');
+            var apiKey = await localforage.getItem('miffy_api_key');
+            var model = await localforage.getItem('miffy_api_model');
+            var temp = parseFloat(await localforage.getItem('miffy_api_temp')) || 0.7;
+            var ctxRaw = await localforage.getItem('miffy_api_ctx');
+            var ctxLimit = (ctxRaw !== null && ctxRaw !== '') ? parseInt(ctxRaw) : 10;
+
+            if (!apiUrl || !apiKey || !model) {
+                // 没有配置API，移除输入指示器
+                var tipEl = document.getElementById('sms-typing-indicator');
+                if (tipEl) tipEl.remove();
+                smsIsReplying = false;
+                return;
+            }
+
+            var rawMessages = await chatListDb.messages.where('contactId').equals(lockedContact.id).toArray();
+            var recentMessages = (ctxLimit === 0) ? rawMessages : rawMessages.slice(-ctxLimit);
+
+            // 构造真实时间字符串（时间感知）
+            var _smsNow = new Date();
+            var _smsTimeStr = _smsNow.getFullYear() + '年' +
+                (_smsNow.getMonth()+1) + '月' +
+                _smsNow.getDate() + '日 ' +
+                ['周日','周一','周二','周三','周四','周五','周六'][_smsNow.getDay()] + ' ' +
+                String(_smsNow.getHours()).padStart(2,'0') + ':' +
+                String(_smsNow.getMinutes()).padStart(2,'0');
+
+            var sysPrompt = '你是一个通过手机短信与用户互动的角色，完全沉浸于角色中。\n' +
+                '【时间感知】当前真实时间为：' + _smsTimeStr + '，你能感知现在的时间，并在对话中自然体现时间感。\n' +
+                '【格式要求】只输出1条纯文本短信回复，极度简短口语化，像真人发短信一样，不要任何格式标记。\n' +
+                '【语气要求】简洁自然，符合短信风格，不超过50字。';
+
+            if (lockedContact.roleDetail) sysPrompt += '\n角色设定：' + lockedContact.roleDetail;
+            if (lockedContact.userDetail) sysPrompt += '\n用户设定：' + lockedContact.userDetail;
+
+            var messages = [{ role: 'system', content: sysPrompt }];
+            recentMessages.forEach(function(msg) {
+                var cleanContent = extractMsgPureText(msg.content);
+                messages.push({
+                    role: msg.sender === 'me' ? 'user' : 'assistant',
+                    content: cleanContent
+                });
+            });
+
+            var cleanApiUrl = apiUrl.replace(/\/+$/, '').replace(/\/v1$/, '');
+            var endpoint = cleanApiUrl + '/v1/chat/completions';
+
+            var response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + apiKey
+                },
+                body: JSON.stringify({ model: model, messages: messages, temperature: temp })
+            });
+
+            if (!response.ok) throw new Error('API请求失败: ' + response.status);
+
+            var data = await response.json();
+            var replyText = data.choices[0].message.content.trim();
+            // 清理可能的JSON包裹
+            try {
+                var parsed = JSON.parse(replyText);
+                if (parsed.content) replyText = parsed.content;
+                else if (Array.isArray(parsed) && parsed[0] && parsed[0].content) replyText = parsed[0].content;
+            } catch(e2) {}
+
+            var replyTimeStr = getSmsTime();
+
+            // 存入数据库
+            var newRoleMsgId = await chatListDb.messages.add({
+                contactId: lockedContact.id,
+                sender: 'role',
+                content: replyText,
+                timeStr: replyTimeStr,
+                quoteText: '',
+                source: 'sms'
+            });
+            var chat2 = await chatListDb.chats.where('contactId').equals(lockedContact.id).first();
+            if (chat2) {
+                await chatListDb.chats.update(chat2.id, { lastTime: replyTimeStr });
+            }
+
+            // 移除输入指示器
+            var tipEl2 = document.getElementById('sms-typing-indicator');
+            if (tipEl2) tipEl2.remove();
+
+            // 检查当前是否还在这个聊天窗口
+            var smsWin = document.getElementById('sms-chat-window');
+            if (smsWin && smsWin.style.display === 'flex' && activeSmsContact && activeSmsContact.id === lockedContact.id) {
+                // 渲染角色回复气泡
+                var timeTip2 = document.createElement('div');
+                timeTip2.className = 'sms-time-tip';
+                timeTip2.textContent = replyTimeStr;
+                container.appendChild(timeTip2);
+
+                var roleRow = document.createElement('div');
+                roleRow.className = 'sms-msg-row sms-role';
+                var roleBubble = document.createElement('div');
+                roleBubble.className = 'sms-bubble';
+                roleBubble.textContent = replyText;
+                roleRow.appendChild(roleBubble);
+                container.appendChild(roleRow);
+                container.scrollTop = container.scrollHeight;
+            } else {
+                // 不在窗口内，显示横幅通知
+                showNotificationBanner('', lockedContact.roleName || '短信', replyText, replyTimeStr, null);
+            }
+
+        } catch(e) {
+            console.error('短信角色回复失败', e);
+            var tipEl3 = document.getElementById('sms-typing-indicator');
+            if (tipEl3) tipEl3.remove();
+        }
+
+        smsIsReplying = false;
+
+        // 角色回复完成后，检查是否要解除对用户的拉黑
+        try {
+            var apiUrlForUnblock = await localforage.getItem('miffy_api_url');
+            var apiKeyForUnblock = await localforage.getItem('miffy_api_key');
+            var modelForUnblock = await localforage.getItem('miffy_api_model');
+            var tempForUnblock = parseFloat(await localforage.getItem('miffy_api_temp')) || 0.7;
+            var ctxRawForUnblock = await localforage.getItem('miffy_api_ctx');
+            var ctxLimitForUnblock = (ctxRawForUnblock !== null && ctxRawForUnblock !== '') ? parseInt(ctxRawForUnblock) : 10;
+            await checkRoleUnblockAfterSmsReply(lockedContact, apiUrlForUnblock, apiKeyForUnblock, modelForUnblock, tempForUnblock, ctxLimitForUnblock);
+        } catch(eUnblock) { console.error('解除拉黑检查失败', eUnblock); }
+    }
+
+})();

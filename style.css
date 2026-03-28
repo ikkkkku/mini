@@ -582,7 +582,7 @@
     color: #333; border: none; background: transparent; padding: 0;
 }
 .paw-send-line:active { transform: translateY(-2px) rotate(-5deg); color: #000; }
-.paw-send-line svg { width: 40px; height: 40px; transform: translate(-6px, 5px); }
+.paw-send-line svg { width: 40px; height: 40px; stroke-width: 0.88px; transform: translate(-6px, 5px); }
 .msg-status { position: absolute; bottom: 5px; right: 6px; color: #777; display: inline-flex; align-items: center; }
 .msg-status svg { display: block; }
 .msg-left .msg-status { display: none; }
@@ -1417,108 +1417,89 @@ img {
 .sim-card-delete-btn:active { background: rgba(220,50,50,0.7); }
 .bank-card-manage-mode .sim-card-delete-btn { display: flex; }
 
-/* ====== 红包卡片样式（精美重制版） ====== */
+/* ====== 红包卡片样式（纯白无阴影版·横向紧凑·0饱和度） ====== */
 .chat-red-packet-card {
     width: 210px;
-    background: #fff;
-    border-radius: 20px;
+    background: #ffffff;
+    border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 8px 28px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.04);
+    box-shadow: none;
     cursor: pointer;
-    transition: transform 0.18s, box-shadow 0.18s;
+    transition: transform 0.2s cubic-bezier(0.4,0,0.2,1), opacity 0.2s;
     position: relative;
-    border: 1px solid #f0f0f0;
+    border: none;
 }
 .chat-red-packet-card:active {
-    transform: scale(0.97);
-    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    transform: scale(0.96);
+    opacity: 0.88;
 }
-.rp-card-top {
+.chat-red-packet-card.rp-claimed {
+    opacity: 0.55;
+}
+/* 红包卡片主体：横向布局，图标左侧 */
+.rp-card-icon-area {
     display: flex;
+    flex-direction: row;
     align-items: center;
-    gap: 13px;
-    padding: 16px 16px 13px 16px;
-    background: linear-gradient(135deg, #e8534a 0%, #c0392b 100%);
-    position: relative;
-    overflow: hidden;
+    padding: 11px 14px;
+    gap: 10px;
 }
-.rp-card-top::after {
-    content: '';
-    position: absolute;
-    right: -18px; top: -18px;
-    width: 80px; height: 80px;
+.rp-card-icon-wrap {
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.10);
-    pointer-events: none;
-}
-.rp-card-top::before {
-    content: '';
-    position: absolute;
-    left: -10px; bottom: -20px;
-    width: 60px; height: 60px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.07);
-    pointer-events: none;
-}
-.rp-card-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.18);
+    background: rgba(100, 100, 100, 0.08);
     display: flex;
     align-items: center;
     justify-content: center;
+    border: 1px solid rgba(100, 100, 100, 0.12);
     flex-shrink: 0;
-    border: 1.5px solid rgba(255,255,255,0.3);
-    position: relative;
-    z-index: 1;
 }
-.rp-card-info {
+.rp-card-text-group {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
     overflow: hidden;
     flex: 1;
-    position: relative;
-    z-index: 1;
 }
 .rp-card-amount {
-    font-size: 22px;
-    font-weight: 800;
-    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    color: #333;
     font-family: Arial, sans-serif;
-    letter-spacing: 0.5px;
+    letter-spacing: -0.3px;
     line-height: 1.1;
 }
 .rp-card-desc {
-    font-size: 11px;
-    color: rgba(255,255,255,0.80);
+    font-size: 10px;
+    color: rgba(80, 80, 80, 0.55);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.2px;
+    font-weight: 400;
 }
 .rp-card-divider {
     height: 1px;
-    background: #f0f0f0;
-    margin: 0;
+    background: rgba(0, 0, 0, 0.05);
+    margin: 0 12px;
 }
 .rp-card-bottom {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 9px 16px 11px;
-    background: #fff;
+    padding: 6px 14px 8px;
 }
 .rp-card-status {
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 10px;
+    font-weight: 400;
     letter-spacing: 0.3px;
+    color: #aaa;
 }
 .rp-card-brand {
-    font-size: 10px;
-    color: #ccc;
-    font-weight: 500;
+    font-size: 9px;
+    color: rgba(100, 100, 100, 0.28);
+    font-weight: 400;
     letter-spacing: 0.5px;
 }
 
@@ -1530,108 +1511,89 @@ img {
     padding: 0 !important;
 }
 
-/* ====== 转账卡片样式（精美重制版） ====== */
+/* ====== 转账卡片样式（纯白无阴影版·横向紧凑·0饱和度） ====== */
 .chat-transfer-card {
     width: 210px;
-    background: #fff;
-    border-radius: 20px;
+    background: #ffffff;
+    border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 8px 28px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.04);
+    box-shadow: none;
     cursor: pointer;
-    transition: transform 0.18s, box-shadow 0.18s;
+    transition: transform 0.2s cubic-bezier(0.4,0,0.2,1), opacity 0.2s;
     position: relative;
-    border: 1px solid #f0f0f0;
+    border: none;
 }
 .chat-transfer-card:active {
-    transform: scale(0.97);
-    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    transform: scale(0.96);
+    opacity: 0.88;
 }
-.tf-card-top {
+.chat-transfer-card.tf-received {
+    opacity: 0.55;
+}
+/* 转账卡片主体：横向布局，图标左侧 */
+.tf-card-icon-area {
     display: flex;
+    flex-direction: row;
     align-items: center;
-    gap: 13px;
-    padding: 16px 16px 13px 16px;
-    background: linear-gradient(135deg, #3a8fd4 0%, #1a6fb5 100%);
-    position: relative;
-    overflow: hidden;
+    padding: 11px 14px;
+    gap: 10px;
 }
-.tf-card-top::after {
-    content: '';
-    position: absolute;
-    right: -18px; top: -18px;
-    width: 80px; height: 80px;
+.tf-card-icon-wrap {
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.10);
-    pointer-events: none;
-}
-.tf-card-top::before {
-    content: '';
-    position: absolute;
-    left: -10px; bottom: -20px;
-    width: 60px; height: 60px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.07);
-    pointer-events: none;
-}
-.tf-card-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.18);
+    background: rgba(100, 100, 100, 0.08);
     display: flex;
     align-items: center;
     justify-content: center;
+    border: 1px solid rgba(100, 100, 100, 0.12);
     flex-shrink: 0;
-    border: 1.5px solid rgba(255,255,255,0.3);
-    position: relative;
-    z-index: 1;
 }
-.tf-card-info {
+.tf-card-text-group {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
     overflow: hidden;
     flex: 1;
-    position: relative;
-    z-index: 1;
 }
 .tf-card-amount {
-    font-size: 22px;
-    font-weight: 800;
-    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    color: #333;
     font-family: Arial, sans-serif;
-    letter-spacing: 0.5px;
+    letter-spacing: -0.3px;
     line-height: 1.1;
 }
 .tf-card-desc {
-    font-size: 11px;
-    color: rgba(255,255,255,0.80);
+    font-size: 10px;
+    color: rgba(80, 80, 80, 0.55);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.2px;
+    font-weight: 400;
 }
 .tf-card-divider {
     height: 1px;
-    background: #f0f0f0;
-    margin: 0;
+    background: rgba(0, 0, 0, 0.05);
+    margin: 0 12px;
 }
 .tf-card-bottom {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 9px 16px 11px;
-    background: #fff;
+    padding: 6px 14px 8px;
 }
 .tf-card-status {
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 10px;
+    font-weight: 400;
     letter-spacing: 0.3px;
+    color: #aaa;
 }
 .tf-card-brand {
-    font-size: 10px;
-    color: #ccc;
-    font-weight: 500;
+    font-size: 9px;
+    color: rgba(100, 100, 100, 0.25);
+    font-weight: 400;
     letter-spacing: 0.5px;
 }
 
@@ -1642,6 +1604,203 @@ img {
     box-shadow: none !important;
     padding: 0 !important;
 }
+
+/* ====== 红包领取弹窗（纯白阴影·居中卡片版） ====== */
+#rp-claim-modal {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.30);
+    z-index: 500;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    justify-content: center;
+    align-items: center;
+    display: none;
+}
+#rp-claim-card {
+    width: 255px;
+    background: #ffffff;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
+    border: 1px solid #f0f0f0;
+}
+.rp-modal-top {
+    padding: 26px 22px 18px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    position: relative;
+}
+.rp-modal-icon {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: #f7f8fa;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid #f0f0f0;
+}
+.rp-modal-amount {
+    font-size: 32px; font-weight: 700; color: #333;
+    font-family: Arial, sans-serif; letter-spacing: -0.5px;
+}
+.rp-modal-desc {
+    font-size: 11px; color: #aaa;
+    letter-spacing: 0.3px; font-weight: 400; text-align: center;
+    line-height: 1.6; padding: 0 8px;
+}
+.rp-modal-close {
+    position: absolute; top: 12px; right: 14px;
+    width: 26px; height: 26px;
+    background: #fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: background 0.2s, transform 0.2s;
+}
+.rp-modal-close:hover { background: #f5f5f5; transform: scale(1.1); }
+.rp-modal-divider {
+    height: 1px;
+    background: #f0f0f0;
+    margin: 0;
+}
+.rp-modal-actions {
+    display: flex; flex-direction: column;
+    background: #fff;
+}
+.rp-modal-btn {
+    height: 50px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: opacity 0.15s, background 0.15s;
+}
+.rp-modal-btn:active { opacity: 0.7; }
+.rp-modal-btn-claim {
+    background: #fff;
+    color: #555;
+}
+.rp-modal-btn-claim:active { background: #f8f8f8; }
+.rp-modal-status-text {
+    padding: 18px 0;
+    text-align: center;
+    font-size: 13px;
+    color: #aaa;
+    font-weight: 400;
+    letter-spacing: 0.3px;
+}
+
+/* ====== 转账发送弹窗（纯白阴影·底部滑出版） ====== */
+#transfer-modal {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.30);
+    z-index: 300;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    justify-content: center;
+    align-items: flex-end;
+    display: none;
+}
+#transfer-sheet {
+    width: 100%;
+    background: #ffffff;
+    border-radius: 24px 24px 0 0;
+    border: none;
+    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.10), 0 -1px 0 rgba(255,255,255,0.9) inset;
+    padding: 0 0 env(safe-area-inset-bottom, 20px);
+    transform: translateY(100%);
+    transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.tf-sheet-drag {
+    display: flex; justify-content: center; padding: 10px 0 0;
+}
+.tf-sheet-drag-bar {
+    width: 30px; height: 3px; border-radius: 2px;
+    background: rgba(0, 0, 0, 0.10);
+}
+.tf-sheet-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 12px 22px 8px;
+}
+.tf-sheet-title-group { display: flex; flex-direction: column; gap: 3px; }
+.tf-sheet-title {
+    font-size: 15px; font-weight: 600; color: #333; letter-spacing: 0.2px;
+}
+.tf-sheet-subtitle {
+    font-size: 11px; color: #aaa; letter-spacing: 0.3px; font-weight: 400;
+}
+.tf-sheet-close {
+    width: 28px; height: 28px;
+    background: #fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    transition: background 0.2s, transform 0.2s;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.tf-sheet-close:hover { background: #f5f5f5; transform: scale(1.08); }
+.tf-sheet-divider {
+    height: 1px; background: #f0f0f0; margin: 0 22px;
+}
+.tf-sheet-body {
+    padding: 14px 22px 20px;
+    display: flex; flex-direction: column; gap: 13px;
+}
+.tf-input-label {
+    font-size: 10px; color: #aaa;
+    font-weight: 500; letter-spacing: 0.8px; margin-bottom: 6px;
+}
+.tf-amount-box {
+    display: flex; align-items: center;
+    background: #f7f8fa;
+    border-radius: 14px;
+    padding: 0 14px;
+    height: 52px;
+    border: 1px solid #f0f0f0;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.tf-amount-box:focus-within {
+    border-color: #ddd;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+.tf-currency {
+    font-size: 17px; color: #888;
+    font-weight: 400; margin-right: 8px; flex-shrink: 0;
+}
+.tf-amount-input {
+    flex: 1; border: none; background: transparent;
+    font-size: 24px; font-weight: 600; color: #333;
+    outline: none; padding: 0;
+    font-family: Arial, sans-serif;
+}
+.tf-amount-input::placeholder { color: #ccc; font-weight: 300; font-size: 20px; }
+.tf-desc-input {
+    width: 100%;
+    background: #f7f8fa;
+    border-radius: 14px;
+    padding: 12px 14px;
+    border: 1px solid #f0f0f0;
+    font-size: 13px; color: #555;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-weight: 400;
+}
+.tf-desc-input:focus { border-color: #ddd; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+.tf-desc-input::placeholder { color: #ccc; }
+.tf-send-btn {
+    width: 100%; height: 50px;
+    background: #ffffff;
+    border-radius: 25px;
+    display: flex; align-items: center; justify-content: center;
+    color: #555; font-size: 15px; font-weight: 500;
+    cursor: pointer; letter-spacing: 1px;
+    border: none;
+    transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+    margin-top: 4px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+.tf-send-btn:active { background: #f8f8f8; transform: scale(0.95); box-shadow: 0 3px 10px rgba(0,0,0,0.06); }
 
 /* ====== 卡片包裹层与状态提示文字 ====== */
 .card-wrapper {
@@ -1679,6 +1838,216 @@ img {
     box-shadow: none !important;
     padding: 0 !important;
     border-radius: 0 !important;
+}
+
+/* ====== 发红包弹窗（纯白阴影·底部滑出版） ====== */
+#red-packet-modal {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.30);
+    z-index: 300;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    justify-content: center;
+    align-items: flex-end;
+    display: none;
+}
+#red-packet-sheet {
+    width: 100%;
+    background: #ffffff;
+    border-radius: 24px 24px 0 0;
+    border: none;
+    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.10), 0 -1px 0 rgba(255,255,255,0.9) inset;
+    padding: 0 0 env(safe-area-inset-bottom, 20px);
+    transform: translateY(100%);
+    transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.rp-sheet-drag {
+    display: flex; justify-content: center; padding: 10px 0 0;
+}
+.rp-sheet-drag-bar {
+    width: 30px; height: 3px; border-radius: 2px;
+    background: rgba(0, 0, 0, 0.10);
+}
+.rp-sheet-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 12px 22px 8px;
+}
+.rp-sheet-title-group { display: flex; flex-direction: column; gap: 3px; }
+.rp-sheet-title {
+    font-size: 15px; font-weight: 600; color: #333; letter-spacing: 0.2px;
+}
+.rp-sheet-subtitle {
+    font-size: 11px; color: #aaa; letter-spacing: 0.3px; font-weight: 400;
+}
+.rp-sheet-close {
+    width: 28px; height: 28px;
+    background: #fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    transition: background 0.2s, transform 0.2s;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.rp-sheet-close:hover { background: #f5f5f5; transform: scale(1.08); }
+.rp-sheet-divider {
+    height: 1px; background: #f0f0f0; margin: 0 22px;
+}
+.rp-sheet-body {
+    padding: 14px 22px 20px;
+    display: flex; flex-direction: column; gap: 13px;
+}
+.rp-input-label {
+    font-size: 10px; color: #aaa;
+    font-weight: 500; letter-spacing: 0.8px; margin-bottom: 6px;
+}
+.rp-amount-box {
+    display: flex; align-items: center;
+    background: #f7f8fa;
+    border-radius: 14px;
+    padding: 0 14px;
+    height: 52px;
+    border: 1px solid #f0f0f0;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.rp-amount-box:focus-within {
+    border-color: #ddd;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+.rp-currency {
+    font-size: 17px; color: #888;
+    font-weight: 400; margin-right: 8px; flex-shrink: 0;
+}
+.rp-amount-input {
+    flex: 1; border: none; background: transparent;
+    font-size: 24px; font-weight: 600; color: #333;
+    outline: none; padding: 0;
+    font-family: Arial, sans-serif;
+}
+.rp-amount-input::placeholder { color: #ccc; font-weight: 300; font-size: 20px; }
+.rp-desc-input {
+    width: 100%;
+    background: #f7f8fa;
+    border-radius: 14px;
+    padding: 12px 14px;
+    border: 1px solid #f0f0f0;
+    font-size: 13px; color: #555;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-weight: 400;
+}
+.rp-desc-input:focus { border-color: #ddd; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+.rp-desc-input::placeholder { color: #ccc; }
+.rp-send-btn {
+    width: 100%; height: 50px;
+    background: #ffffff;
+    border-radius: 25px;
+    display: flex; align-items: center; justify-content: center;
+    color: #555; font-size: 15px; font-weight: 500;
+    cursor: pointer; letter-spacing: 1px;
+    border: none;
+    transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+    margin-top: 4px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+.rp-send-btn:active { background: #f8f8f8; transform: scale(0.95); box-shadow: 0 3px 10px rgba(0,0,0,0.06); }
+
+/* ====== 转账接收弹窗（纯白阴影·居中卡片版） ====== */
+#tf-action-modal {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.30);
+    z-index: 500;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    justify-content: center;
+    align-items: center;
+    display: none;
+}
+#tf-action-card {
+    width: 255px;
+    background: #ffffff;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
+    border: 1px solid #f0f0f0;
+    transform: scale(0.88);
+    opacity: 0;
+    transition: transform 0.26s cubic-bezier(0.16,1,0.3,1), opacity 0.26s;
+}
+.tf-modal-top {
+    padding: 26px 22px 18px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    position: relative;
+}
+.tf-modal-icon {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: #f7f8fa;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid #f0f0f0;
+}
+.tf-modal-amount {
+    font-size: 32px; font-weight: 700; color: #333;
+    font-family: Arial, sans-serif; letter-spacing: -0.5px;
+}
+.tf-modal-desc {
+    font-size: 11px; color: #aaa;
+    letter-spacing: 0.3px; font-weight: 400; text-align: center;
+    line-height: 1.6; padding: 0 8px;
+}
+.tf-modal-close {
+    position: absolute; top: 12px; right: 14px;
+    width: 26px; height: 26px;
+    background: #fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: background 0.2s, transform 0.2s;
+}
+.tf-modal-close:hover { background: #f5f5f5; transform: scale(1.1); }
+.tf-modal-divider {
+    height: 1px;
+    background: #f0f0f0;
+    margin: 0;
+}
+.tf-modal-actions {
+    display: flex; flex-direction: column;
+    background: #fff;
+}
+.tf-modal-btn {
+    height: 50px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: opacity 0.15s, background 0.15s;
+}
+.tf-modal-btn:active { opacity: 0.7; }
+.tf-modal-btn-receive {
+    background: #fff;
+    color: #555;
+}
+.tf-modal-btn-receive:active { background: #f8f8f8; }
+.tf-modal-btn-sep {
+    height: 1px;
+    background: #f0f0f0;
+    margin: 0 16px;
+}
+.tf-modal-btn-refund {
+    background: transparent;
+    color: #aaa;
+}
+.tf-modal-btn-refund:active { background: #f8f8f8; }
+.tf-modal-status-text {
+    padding: 18px 0;
+    text-align: center;
+    font-size: 13px;
+    color: #aaa;
+    font-weight: 400;
+    letter-spacing: 0.3px;
 }
 
 /* ====== 角色主页页面样式 (仿微信联系人资料页) ====== */
@@ -1971,4 +2340,303 @@ img {
     gap: 2px;
     flex-shrink: 0;
     margin-left: 10px;
+}
+
+/* ====== 聊天列表左滑操作样式 ====== */
+
+/* 父容器去掉 gap，改由 wrapper 自己控制间距 */
+#chat-list-container {
+    gap: 0 !important;
+}
+
+.chat-swipe-wrapper {
+    position: relative;
+    width: 100%;
+    flex-shrink: 0;
+    /* 关键：overflow:hidden + border-radius 一起裁剪，彻底消除露底 */
+    overflow: hidden;
+    border-radius: 16px;
+    /* 用 margin 代替 gap 控制间距，避免 overflow:hidden 被 gap 撑开露底 */
+    margin-bottom: 12px;
+}
+.chat-swipe-wrapper:last-child {
+    margin-bottom: 0;
+}
+
+/* 操作按钮区（绝对定位贴右，高度 100% 跟随 wrapper） */
+.chat-swipe-actions {
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    display: flex;
+    align-items: stretch;
+}
+
+.chat-swipe-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 65px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    letter-spacing: 0.3px;
+    padding: 0 10px;
+    transition: opacity 0.15s;
+    /* 不设 border-radius，由 wrapper 的 overflow:hidden 统一裁剪 */
+}
+.chat-swipe-btn:active { opacity: 0.75; }
+
+/* 置顶按钮 - 黄色系 */
+.chat-swipe-pin {
+    background: #f5a623;
+    color: #fff;
+}
+.chat-swipe-pin.pinned {
+    background: #aaa;
+    color: #fff;
+}
+
+/* 删除按钮 - 红色系 */
+.chat-swipe-delete {
+    background: #e74c3c;
+    color: #fff;
+}
+
+/* 主内容区（可滑动的那层，z-index 盖住 actions） */
+.chat-swipe-item {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    padding: 14px;
+    background: #fff;
+    /* 不设 border-radius，wrapper 已经裁剪 */
+    box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+    cursor: pointer;
+    will-change: transform;
+    /* 确保宽度撑满 wrapper */
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* 置顶状态背景色 */
+.chat-swipe-item.chat-item-pinned {
+    background: #fffbf0;
+}
+
+/* 置顶小标签 */
+.chat-pin-tag {
+    font-size: 9px;
+    font-weight: 600;
+    color: #f5a623;
+    background: #fff8ec;
+    border: 1px solid #fde8b8;
+    border-radius: 6px;
+    padding: 1px 5px;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+}
+
+/* ====== 聊天详情页面样式 ====== */
+/* 头像行 */
+.cd-avatar-row {
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+    gap: 28px;
+    padding: 28px 24px 20px;
+    background: #fff;
+    margin-bottom: 12px;
+}
+.cd-avatar-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+.cd-avatar-wrap {
+    width: 64px;
+    height: 64px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #f0f0f0;
+    position: relative;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+.cd-avatar-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.cd-avatar-edit-badge {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
+    background: rgba(0,0,0,0.45);
+    border-radius: 6px 0 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.cd-avatar-label {
+    font-size: 12px;
+    color: #666;
+    font-weight: 500;
+}
+/* 设置区块 */
+.cd-section {
+    background: #fff;
+    border-radius: 0;
+    overflow: visible;
+    margin: 0 0 0 0;
+}
+.cd-section-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    cursor: pointer;
+    transition: background 0.15s;
+    min-height: 50px;
+}
+.cd-section-item:active { background: #f8f8f8; }
+.cd-item-label {
+    font-size: 14px;
+    color: #1a1a1a;
+    font-weight: 400;
+    flex: 1;
+}
+.cd-item-label-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+}
+.cd-item-desc {
+    font-size: 11px;
+    color: #aaa;
+    font-weight: 400;
+}
+.cd-item-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.cd-item-value {
+    font-size: 13px;
+    color: #aaa;
+}
+.cd-wallpaper-preview {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    background: #f0f0f0;
+    background-size: cover;
+    background-position: center;
+    border: 1px solid #eee;
+    overflow: hidden;
+}
+.cd-divider {
+    height: 1px;
+    background: #f5f5f5;
+    margin: 0 20px;
+}
+/* 开关样式 */
+.cd-toggle {
+    width: 46px;
+    height: 26px;
+    border-radius: 13px;
+    background: #ddd;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.25s;
+    flex-shrink: 0;
+}
+.cd-toggle.on {
+    background: #4cd964;
+}
+.cd-toggle-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: left 0.25s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+}
+.cd-toggle.on .cd-toggle-thumb {
+    left: 22px;
+}
+
+/* ====== 聊天详情：头像区垂直居中 ====== */
+.cd-avatar-row {
+    align-items: center !important;
+}
+
+/* ====== 聊天详情：记忆展开区平滑动画 ====== */
+.cd-memory-expand-box {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+}
+.cd-memory-expand-box.open {
+    max-height: 400px;
+    opacity: 1;
+}
+
+/* ====== 聊天详情：数字输入框（回复条数 & 总结阈值） ====== */
+.cd-count-input {
+    width: 40px;
+    height: 28px;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #444;
+    background: #f8f8f8;
+    outline: none;
+    padding: 0 4px;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+.cd-count-input::-webkit-inner-spin-button,
+.cd-count-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.cd-count-input:focus {
+    border-color: #bbb;
+    background: #fff;
+}
+
+/* ====== 聊天详情：记忆展开子项缩进样式 ====== */
+.cd-memory-sub-item {
+    padding-left: 32px !important;
+    background: #fafafa;
+}
+
+/* ====== 聊天详情：小尺寸开关（用于子项） ====== */
+.cd-toggle-sm {
+    width: 38px !important;
+    height: 22px !important;
+    border-radius: 11px !important;
+}
+.cd-toggle-sm .cd-toggle-thumb {
+    width: 18px !important;
+    height: 18px !important;
+    top: 2px !important;
+    left: 2px !important;
+}
+.cd-toggle-sm.on .cd-toggle-thumb {
+    left: 18px !important;
 }

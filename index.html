@@ -533,7 +533,13 @@
             <div class="app-body" style="padding: 0; align-items: flex-start;">
                 <!-- 上方：直接复用“我”页面的样式，完美统一 -->
                 <div class="me-menu-list" style="margin-top: 15px; margin-bottom: 25px;">
-                    <div class="me-menu-item" onclick="openContactEditor()"><span>新朋友</span><span class="me-menu-arrow">›</span></div>
+                    <div class="me-menu-item" onclick="openBlockRequestList()">
+                        <span>新朋友</span>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <span id="block-request-badge" style="background:#e74c3c;color:#fff;font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:9px;padding:0 5px;display:none;align-items:center;justify-content:center;"></span>
+                            <span class="me-menu-arrow">›</span>
+                        </div>
+                    </div>
                     <div class="me-menu-item"><span>群管理</span><span class="me-menu-arrow">›</span></div>
                 </div>
                 <div id="contact-group-container" style="width: 100%; padding: 0 20px; display: flex; flex-wrap: wrap; gap: 10px;">
@@ -592,7 +598,7 @@
             <div class="app-back" onclick="closeWalletApp()">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
             </div>
-            <div class="app-title">资产与服务</div>
+            <div class="app-title">资产钱包</div>
             <div style="width:36px;"></div>
         </div>
         <div class="app-body" style="padding: 10px 20px; align-items: stretch; display: flex; flex-direction: column; flex: 1;">
@@ -1050,6 +1056,20 @@
             </div>
         </div>
     </div>
+    <!-- ====== 解除拉黑申请列表弹窗 ====== -->
+    <div id="block-request-list-modal" onclick="if(event.target===this)closeBlockRequestList()" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:200;backdrop-filter:blur(5px);justify-content:center;align-items:center;">
+        <div class="preset-card" style="width:90%;max-height:85%;overflow-y:auto;padding-bottom:20px;">
+            <div class="preset-header" style="justify-content:space-between;">
+                <span>新朋友</span>
+                <div onclick="openContactEditor()" style="font-size:13px;color:#888;cursor:pointer;font-weight:500;">+ 添加联系人</div>
+            </div>
+            <div id="block-request-list-content" style="padding:10px 15px;display:flex;flex-direction:column;gap:12px;">
+                <div style="color:#bbb;font-size:13px;text-align:center;margin-top:20px;">暂无解除拉黑申请</div>
+            </div>
+        </div>
+    </div>
+    <!-- ====== 解除拉黑申请面板（叠加弹出）====== -->
+    <div id="unblock-request-overlay" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;z-index:250;pointer-events:none;"></div>
     <!-- ====== 批量导出弹窗 ====== -->
     <div id="batch-export-modal" onclick="if(event.target === this) closeBatchExportModal()" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 200; backdrop-filter: blur(5px); justify-content: center; align-items: center;">
         <div class="preset-card" style="width: 85%; max-height: 80%; overflow-y: auto; padding-bottom: 20px;">
@@ -1333,41 +1353,33 @@
             </div>
         </div>
     </div>
-    <!-- ====== 红包发送弹窗 ====== -->
-    <div id="red-packet-modal" onclick="if(event.target===this)closeRedPacketModal()" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:300; backdrop-filter:blur(6px); justify-content:center; align-items:flex-end;">
-        <div id="red-packet-sheet" style="width:100%; background:#fff; border-radius:24px 24px 0 0; padding:0 0 env(safe-area-inset-bottom,20px); transform:translateY(100%); transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);">
-            <!-- 顶部装饰区 -->
-            <div style="background:linear-gradient(135deg,#e8534a,#c0392b); border-radius:24px 24px 0 0; padding:22px 22px 18px; position:relative; overflow:hidden;">
-                <div style="position:absolute;right:-20px;top:-20px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,0.08);pointer-events:none;"></div>
-                <div style="position:absolute;left:-10px;bottom:-25px;width:70px;height:70px;border-radius:50%;background:rgba(255,255,255,0.06);pointer-events:none;"></div>
-                <div style="display:flex;justify-content:space-between;align-items:center;position:relative;z-index:1;">
-                    <div>
-                        <div style="font-size:18px;font-weight:800;color:#fff;letter-spacing:0.5px;">发红包</div>
-                        <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:3px;letter-spacing:0.3px;">送出你的祝福</div>
-                    </div>
-                    <div onclick="closeRedPacketModal()" style="width:30px;height:30px;background:rgba(255,255,255,0.18);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid rgba(255,255,255,0.25);">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </div>
+    <!-- ====== 红包发送弹窗 (毛玻璃·底部滑出版) ====== -->
+    <div id="red-packet-modal" onclick="if(event.target===this)closeRedPacketModal()">
+        <div id="red-packet-sheet">
+            <div class="rp-sheet-drag"><div class="rp-sheet-drag-bar"></div></div>
+            <div class="rp-sheet-header">
+                <div class="rp-sheet-title-group">
+                    <div class="rp-sheet-title">发红包</div>
+                    <div class="rp-sheet-subtitle">送出你的祝福</div>
                 </div>
+                <button class="rp-sheet-close" onclick="closeRedPacketModal()">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#999" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
             </div>
-            <div style="padding:18px 22px 24px; display:flex; flex-direction:column; gap:14px;">
-                <!-- 金额输入 -->
+            <div class="rp-sheet-divider"></div>
+            <div class="rp-sheet-body">
                 <div>
-                    <div style="font-size:11px; color:#aaa; margin-bottom:8px; font-weight:500; letter-spacing:0.5px;">红包金额（元）</div>
-                    <div style="display:flex; align-items:center; background:#fafafa; border:1.5px solid #f0f0f0; border-radius:16px; padding:0 16px; height:54px; transition:border-color 0.2s;" onfocus="this.style.borderColor='#e8534a'" onblur="this.style.borderColor='#f0f0f0'">
-                        <span style="font-size:20px; color:#e8534a; font-weight:700; margin-right:6px;">¥</span>
-                        <input type="number" id="red-packet-amount-input" class="settings-input" placeholder="0.00" inputmode="decimal" style="border:none; background:transparent; font-size:24px; font-weight:800; color:#333; padding:0; box-shadow:none; flex:1;">
+                    <div class="rp-input-label">红包金额（元）</div>
+                    <div class="rp-amount-box">
+                        <span class="rp-currency">¥</span>
+                        <input type="number" id="red-packet-amount-input" class="rp-amount-input" placeholder="0.00" inputmode="decimal">
                     </div>
                 </div>
-                <!-- 祝福语输入 -->
                 <div>
-                    <div style="font-size:11px; color:#aaa; margin-bottom:8px; font-weight:500; letter-spacing:0.5px;">祝福语（可不填）</div>
-                    <input type="text" id="red-packet-desc-input" class="settings-input" placeholder="恭喜发财，大吉大利" style="border-radius:14px; border-color:#f0f0f0;">
+                    <div class="rp-input-label">祝福语（可不填）</div>
+                    <input type="text" id="red-packet-desc-input" class="rp-desc-input" placeholder="祝福语（可不填）">
                 </div>
-                <!-- 发送按钮 -->
-                <div onclick="submitRedPacket()" style="width:100%; height:52px; background:linear-gradient(135deg,#e8534a,#c0392b); border-radius:18px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 8px 24px rgba(192,57,43,0.32); transition:opacity 0.2s; margin-top:4px;" onmousedown="this.style.opacity='0.85'" onmouseup="this.style.opacity='1'">
-                    确认发送
-                </div>
+                <div class="rp-send-btn" onclick="submitRedPacket()">确认发送</div>
             </div>
         </div>
     </div>
@@ -1448,92 +1460,118 @@
             </div>
         </div>
     </div>
-    <!-- ====== 红包领取弹窗 ====== -->
-    <div id="rp-claim-modal" onclick="if(event.target===this)closeRpClaimModal()" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:500; backdrop-filter:blur(6px); justify-content:center; align-items:center;">
-        <div id="rp-claim-card" style="width:260px; background:linear-gradient(160deg,#e74c3c,#c0392b); border-radius:24px; overflow:hidden; box-shadow:0 20px 50px rgba(192,57,43,0.45);">
-            <!-- 顶部信息区 -->
-            <div style="padding:28px 24px 20px; display:flex; flex-direction:column; align-items:center; gap:10px;">
-                <div style="width:56px; height:56px; background:rgba(255,255,255,0.15); border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid rgba(255,255,255,0.3);">
-                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" ry="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><path d="M9 10 Q12 6 15 10"></path></svg>
+    <!-- ====== 红包领取弹窗 (毛玻璃·居中卡片版) ====== -->
+    <div id="rp-claim-modal" onclick="if(event.target===this)closeRpClaimModal()">
+        <div id="rp-claim-card">
+            <div class="rp-modal-top">
+                <button class="rp-modal-close" onclick="closeRpClaimModal()">
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#999" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+                <div class="rp-modal-icon">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#aaa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="16" rx="2" ry="2"></rect>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                        <circle cx="12" cy="10" r="2"></circle>
+                    </svg>
                 </div>
-                <div id="rp-claim-amount" style="font-size:32px; font-weight:900; color:#fff; font-family:Arial,sans-serif; letter-spacing:1px;">¥ 0.00</div>
-                <div id="rp-claim-desc" style="font-size:13px; color:rgba(255,255,255,0.8); letter-spacing:0.5px;">恭喜发财，大吉大利</div>
+                <div class="rp-modal-amount" id="rp-claim-amount">¥ 0.00</div>
+                <div class="rp-modal-desc" id="rp-claim-desc">恭喜发财，大吉大利</div>
             </div>
-            <!-- 分割线 -->
-            <div style="height:1px; background:rgba(255,255,255,0.2); margin:0 20px;"></div>
-            <!-- 底部按钮区 -->
-            <div id="rp-claim-actions" style="padding:18px 24px 22px; display:flex; flex-direction:column; align-items:center; gap:12px;">
+            <div class="rp-modal-divider"></div>
+            <div class="rp-modal-actions" id="rp-claim-actions">
                 <!-- 由 JS 动态填充 -->
             </div>
         </div>
     </div>
-    <!-- ====== 转账操作弹窗 ====== -->
-    <div id="tf-action-modal" onclick="if(event.target===this)closeTfActionModal()" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:500; backdrop-filter:blur(6px); justify-content:center; align-items:center;">
-        <div id="tf-action-card" style="width:260px; background:#fff; border-radius:24px; overflow:hidden; box-shadow:0 20px 50px rgba(26,111,181,0.25);">
-            <!-- 顶部蓝色信息区 -->
-            <div style="background:linear-gradient(160deg,#2980b9,#1a6fb5); padding:28px 24px 20px; display:flex; flex-direction:column; align-items:center; gap:10px;">
-                <div style="width:56px; height:56px; background:rgba(255,255,255,0.15); border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid rgba(255,255,255,0.3);">
-                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+    <!-- ====== 转账操作弹窗 (毛玻璃·居中卡片版) ====== -->
+    <div id="tf-action-modal" onclick="if(event.target===this)closeTfActionModal()">
+        <div id="tf-action-card">
+            <div class="tf-modal-top">
+                <button class="tf-modal-close" onclick="closeTfActionModal()">
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#999" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+                <div class="tf-modal-icon">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#aaa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="16 3 21 3 21 8"></polyline>
+                        <line x1="4" y1="20" x2="21" y2="3"></line>
+                        <polyline points="21 16 21 21 16 21"></polyline>
+                        <line x1="15" y1="15" x2="21" y2="21"></line>
+                        <line x1="4" y1="4" x2="9" y2="9"></line>
+                    </svg>
                 </div>
-                <div id="tf-action-amount" style="font-size:32px; font-weight:900; color:#fff; font-family:Arial,sans-serif; letter-spacing:1px;">¥ 0.00</div>
-                <div id="tf-action-desc" style="font-size:13px; color:rgba(255,255,255,0.8); letter-spacing:0.5px;">转账</div>
+                <div class="tf-modal-amount" id="tf-action-amount">¥ 0.00</div>
+                <div class="tf-modal-desc" id="tf-action-desc">您收到一笔转账，请点击领取</div>
             </div>
-            <!-- 底部按钮区 -->
-            <div id="tf-action-actions" style="padding:18px 24px 22px; display:flex; flex-direction:column; align-items:center; gap:12px;">
+            <div class="tf-modal-divider"></div>
+            <div class="tf-modal-actions" id="tf-action-actions">
                 <!-- 由 JS 动态填充 -->
             </div>
         </div>
     </div>
-    <!-- ====== 转账发送弹窗 ====== -->
-    <div id="transfer-modal" onclick="if(event.target===this)closeTransferModal()" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:300; backdrop-filter:blur(6px); justify-content:center; align-items:flex-end;">
-        <div id="transfer-sheet" style="width:100%; background:#fff; border-radius:24px 24px 0 0; padding:0 0 env(safe-area-inset-bottom,20px); transform:translateY(100%); transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);">
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:20px 22px 14px;">
-                <div style="font-size:17px; font-weight:700; color:#1a6fb5;">转账</div>
-                <div onclick="closeTransferModal()" style="color:#bbb; font-size:24px; cursor:pointer; line-height:1; font-weight:300;">×</div>
+    <!-- ====== 转账发送弹窗 (纯白阴影版) ====== -->
+    <div id="transfer-modal" onclick="if(event.target===this)closeTransferModal()" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.30); z-index:300; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); justify-content:center; align-items:flex-end;">
+        <div id="transfer-sheet" style="width:100%; background:#ffffff; border-radius:24px 24px 0 0; border:none; box-shadow:0 -8px 40px rgba(0,0,0,0.10); padding:0 0 env(safe-area-inset-bottom,20px); transform:translateY(100%); transition:transform 0.34s cubic-bezier(0.32,0.72,0,1);">
+            <!-- 顶部拖拽条 -->
+            <div style="display:flex;justify-content:center;padding:10px 0 0;">
+                <div style="width:32px;height:3px;border-radius:2px;background:rgba(0,0,0,0.10);"></div>
             </div>
-            <div style="height:1px; background:#f5f5f5; margin:0 22px;"></div>
-            <div style="padding:18px 22px 24px; display:flex; flex-direction:column; gap:16px;">
+            <!-- 标题区 -->
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 22px 10px;">
                 <div>
-                    <div style="font-size:12px; color:#999; margin-bottom:8px; font-weight:500;">转账金额（元）</div>
-                    <div style="display:flex; align-items:center; background:#fafafa; border:1.5px solid #eee; border-radius:16px; padding:0 16px; height:54px;">
-                        <span style="font-size:20px; color:#1a6fb5; font-weight:700; margin-right:6px;">¥</span>
-                        <input type="number" id="transfer-amount-input" class="settings-input" placeholder="0.00" inputmode="decimal" style="border:none; background:transparent; font-size:24px; font-weight:700; color:#1a6fb5; padding:0; box-shadow:none; flex:1;">
+                    <div style="font-size:17px;font-weight:700;color:#333;letter-spacing:0.3px;">转账</div>
+                    <div style="font-size:11px;color:#aaa;margin-top:2px;letter-spacing:0.3px;">安全快捷转账</div>
+                </div>
+                <div onclick="closeTransferModal()" style="width:28px;height:28px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#666" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </div>
+            </div>
+            <!-- 细分割线 -->
+            <div style="height:1px;background:#f0f0f0;margin:0 22px;"></div>
+            <div style="padding:16px 22px 22px; display:flex; flex-direction:column; gap:14px;">
+                <!-- 金额输入 -->
+                <div>
+                    <div style="font-size:10.5px; color:#aaa; margin-bottom:8px; font-weight:500; letter-spacing:0.8px;">转账金额（元）</div>
+                    <div style="display:flex; align-items:center; background:#f7f8fa; border:1px solid #f0f0f0; border-radius:14px; padding:0 16px; height:52px;">
+                        <span style="font-size:19px; color:#888; font-weight:400; margin-right:8px;">¥</span>
+                        <input type="number" id="transfer-amount-input" class="settings-input" placeholder="0.00" inputmode="decimal" style="border:none; background:transparent; font-size:26px; font-weight:700; color:#333; padding:0; box-shadow:none; flex:1; letter-spacing:-0.5px;">
                     </div>
                 </div>
+                <!-- 转账说明 -->
                 <div>
-                    <div style="font-size:12px; color:#999; margin-bottom:8px; font-weight:500;">转账说明（可不填）</div>
-                    <input type="text" id="transfer-desc-input" class="settings-input" placeholder="例如：还你的钱" style="border-radius:14px;">
+                    <div style="font-size:10.5px; color:#aaa; margin-bottom:8px; font-weight:500; letter-spacing:0.8px;">转账说明（可不填）</div>
+                    <input type="text" id="transfer-desc-input" class="settings-input" placeholder="例如：还你的钱" style="border-radius:14px; border:1px solid #f0f0f0; background:#f7f8fa; color:#555; font-size:13.5px;">
                 </div>
                 <!-- 支付方式选择 -->
                 <div>
-                    <div style="font-size:12px; color:#999; margin-bottom:8px; font-weight:500;">支付方式</div>
-                    <div style="display:flex; flex-direction:column; gap:8px; background:#fafafa; border-radius:16px; padding:4px 0; border:1px solid #eee;">
-                        <label style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; cursor:pointer;">
+                    <div style="font-size:10.5px; color:#aaa; margin-bottom:8px; font-weight:500; letter-spacing:0.8px;">支付方式</div>
+                    <div style="display:flex; flex-direction:column; gap:0; background:#f7f8fa; border-radius:16px; overflow:hidden; border:1px solid #f0f0f0;">
+                        <label style="display:flex; align-items:center; justify-content:space-between; padding:11px 16px; cursor:pointer;">
                             <div style="display:flex; align-items:center; gap:10px;">
-                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                                <span style="font-size:14px; color:#333; font-weight:500;">余额</span>
+                                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                                <span style="font-size:13.5px; color:#444; font-weight:500;">余额</span>
                             </div>
-                            <input type="radio" name="tf-pay-method" value="balance" checked style="accent-color:#1a6fb5; width:16px; height:16px;">
+                            <input type="radio" name="tf-pay-method" value="balance" checked style="accent-color:#666; width:15px; height:15px;">
                         </label>
                         <div style="height:1px; background:#f0f0f0; margin:0 16px;"></div>
-                        <label style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; cursor:pointer;">
+                        <label style="display:flex; align-items:center; justify-content:space-between; padding:11px 16px; cursor:pointer;">
                             <div style="display:flex; align-items:center; gap:10px;">
-                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/><line x1="5" y1="15" x2="9" y2="15"/></svg>
-                                <span style="font-size:14px; color:#333; font-weight:500;">银行卡</span>
+                                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/><line x1="5" y1="15" x2="9" y2="15"/></svg>
+                                <span style="font-size:13.5px; color:#444; font-weight:500;">银行卡</span>
                             </div>
-                            <input type="radio" name="tf-pay-method" value="bankcard" style="accent-color:#1a6fb5; width:16px; height:16px;">
+                            <input type="radio" name="tf-pay-method" value="bankcard" style="accent-color:#666; width:15px; height:15px;">
                         </label>
                         <div style="height:1px; background:#f0f0f0; margin:0 16px;"></div>
-                        <label style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; cursor:pointer;">
+                        <label style="display:flex; align-items:center; justify-content:space-between; padding:11px 16px; cursor:pointer; opacity:0.5;">
                             <div style="display:flex; align-items:center; gap:10px;">
-                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                <span style="font-size:14px; color:#bbb; font-weight:500;">亲属卡（未开放）</span>
+                                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#aaa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                <span style="font-size:13.5px; color:#aaa; font-weight:500;">亲属卡（未开放）</span>
                             </div>
-                            <input type="radio" name="tf-pay-method" value="family" disabled style="accent-color:#1a6fb5; width:16px; height:16px;">
+                            <input type="radio" name="tf-pay-method" value="family" disabled style="accent-color:#666; width:15px; height:15px;">
                         </label>
                     </div>
                 </div>
-                <div onclick="submitTransfer()" style="width:100%; height:52px; background:linear-gradient(135deg,#2980b9,#1a6fb5); border-radius:18px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 8px 20px rgba(26,111,181,0.28); transition:opacity 0.2s;" onmousedown="this.style.opacity='0.85'" onmouseup="this.style.opacity='1'">
+                <!-- 确认按钮 -->
+                <div onclick="submitTransfer()" style="width:100%; height:50px; background:#ffffff; border-radius:25px; display:flex; align-items:center; justify-content:center; color:#555; font-size:15px; font-weight:500; cursor:pointer; box-shadow:0 6px 20px rgba(0,0,0,0.08); transition:all 0.2s; margin-top:2px; letter-spacing:1px; border:none;" onmousedown="this.style.background='#f8f8f8';this.style.transform='scale(0.95)'" onmouseup="this.style.background='#fff';this.style.transform='scale(1)'">
                     确认转账
                 </div>
             </div>
@@ -1611,77 +1649,71 @@
             </div>
         </div>
     </div>
-    <!-- ====== 充值弹窗 (精美重制版) ====== -->
-    <div id="recharge-modal" onclick="if(event.target===this)closeRechargeModal()" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.55); z-index:400; backdrop-filter:blur(8px); justify-content:center; align-items:flex-end;">
-        <div id="recharge-sheet" style="width:100%; background:#f4f5f7; border-radius:28px 28px 0 0; padding:0 0 env(safe-area-inset-bottom,24px); transform:translateY(100%); transition:transform 0.36s cubic-bezier(0.4,0,0.2,1);">
-            <!-- 顶部装饰条 -->
-            <div style="display:flex; justify-content:center; padding:12px 0 0;">
-                <div style="width:36px; height:4px; border-radius:2px; background:#e0e0e0;"></div>
+    <!-- ====== 充值弹窗 (简洁精美版) ====== -->
+    <div id="recharge-modal" onclick="if(event.target===this)closeRechargeModal()" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.45); z-index:400; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); justify-content:center; align-items:flex-end;">
+        <div id="recharge-sheet" style="width:100%; background:#fff; border-radius:24px 24px 0 0; padding:0 0 env(safe-area-inset-bottom,20px); transform:translateY(100%); transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);">
+            <!-- 顶部拖拽条 -->
+            <div style="display:flex; justify-content:center; padding:12px 0 4px;">
+                <div style="width:36px; height:4px; border-radius:2px; background:#eee;"></div>
             </div>
             <!-- 标题栏 -->
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 22px 12px;">
-                <div style="font-size:18px; font-weight:800; color:#222; letter-spacing:0.3px;">充值到账户</div>
-                <div onclick="closeRechargeModal()" style="width:32px; height:32px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#888" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 22px 14px;">
+                <div style="font-size:17px; font-weight:700; color:#222;">充值</div>
+                <div onclick="closeRechargeModal()" style="color:#bbb; font-size:24px; cursor:pointer; line-height:1; font-weight:300;">×</div>
             </div>
-            <div style="padding:0 18px 20px; display:flex; flex-direction:column; gap:14px;">
-                <!-- 金额输入卡片 -->
-                <div style="background:#fff; border-radius:20px; padding:20px 20px 16px; box-shadow:0 4px 16px rgba(0,0,0,0.04);">
-                    <div style="font-size:11px; color:#aaa; font-weight:500; letter-spacing:0.8px; margin-bottom:12px; text-transform:uppercase;">充值金额</div>
-                    <div style="display:flex; align-items:baseline; gap:6px;">
-                        <span style="font-size:28px; color:#667eea; font-weight:800; line-height:1;">¥</span>
-                        <input type="number" id="recharge-amount-input" inputmode="decimal" placeholder="0.00" style="flex:1; border:none; outline:none; font-size:36px; font-weight:800; color:#222; background:transparent; font-family:Arial,sans-serif; letter-spacing:-0.5px;">
+            <div style="padding:0 22px 24px; display:flex; flex-direction:column; gap:16px;">
+                <!-- 金额输入区 -->
+                <div>
+                    <div style="font-size:12px; color:#999; margin-bottom:8px; font-weight:500; letter-spacing:0.5px;">充值金额（元）</div>
+                    <div style="display:flex; align-items:center; background:#f7f8fa; border-radius:16px; padding:0 16px; height:56px;">
+                        <span style="font-size:20px; color:#333; font-weight:500; margin-right:8px;">¥</span>
+                        <input type="number" id="recharge-amount-input" inputmode="decimal" placeholder="0.00" style="flex:1; border:none; outline:none; font-size:28px; font-weight:700; color:#222; background:transparent; font-family:Arial,sans-serif; letter-spacing:-0.5px; padding:0;">
                     </div>
-                    <div style="height:1.5px; background:linear-gradient(90deg,#667eea,#764ba2); border-radius:1px; margin-top:12px; opacity:0.3;"></div>
                 </div>
-                <!-- 充值来源选择卡片 -->
-                <div style="background:#fff; border-radius:20px; overflow:hidden; box-shadow:0 4px 16px rgba(0,0,0,0.04);">
-                    <div style="padding:14px 18px 10px; font-size:11px; color:#aaa; font-weight:500; letter-spacing:0.8px; text-transform:uppercase;">选择来源</div>
-                    <div id="recharge-source-list" style="max-height:200px; overflow-y:auto;">
+                <!-- 充值来源选择 -->
+                <div>
+                    <div style="font-size:12px; color:#999; margin-bottom:8px; font-weight:500; letter-spacing:0.5px;">选择来源</div>
+                    <div id="recharge-source-list" style="display:flex; flex-direction:column; gap:0; background:#f7f8fa; border-radius:16px; overflow:hidden; max-height:200px; overflow-y:auto;">
                         <!-- 由 JS 动态填充 -->
                     </div>
                 </div>
                 <!-- 确认按钮 -->
-                <div onclick="confirmRecharge()" style="width:100%; height:54px; background:linear-gradient(135deg,#667eea,#764ba2); border-radius:20px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 10px 28px rgba(102,126,234,0.38); transition:opacity 0.2s; letter-spacing:0.5px;" onmousedown="this.style.opacity='0.82'" onmouseup="this.style.opacity='1'">
+                <div onclick="confirmRecharge()" style="width:100%; height:50px; background:#fff; border-radius:25px; display:flex; align-items:center; justify-content:center; color:#666; font-size:15px; font-weight:500; cursor:pointer; transition:all 0.2s; margin-top:4px; letter-spacing:1px; box-shadow:0 6px 20px rgba(0,0,0,0.08);" onmousedown="this.style.background='#f8f8f8';this.style.transform='scale(0.95)'" onmouseup="this.style.background='#fff';this.style.transform='scale(1)'">
                     确认充值
                 </div>
             </div>
         </div>
     </div>
-    <!-- ====== 提现弹窗 (精美重制版) ====== -->
-    <div id="withdraw-modal" onclick="if(event.target===this)closeWithdrawModal()" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.55); z-index:400; backdrop-filter:blur(8px); justify-content:center; align-items:flex-end;">
-        <div id="withdraw-sheet" style="width:100%; background:#f4f5f7; border-radius:28px 28px 0 0; padding:0 0 env(safe-area-inset-bottom,24px); transform:translateY(100%); transition:transform 0.36s cubic-bezier(0.4,0,0.2,1);">
-            <!-- 顶部装饰条 -->
-            <div style="display:flex; justify-content:center; padding:12px 0 0;">
-                <div style="width:36px; height:4px; border-radius:2px; background:#e0e0e0;"></div>
+    <!-- ====== 提现弹窗 (简洁精美版) ====== -->
+    <div id="withdraw-modal" onclick="if(event.target===this)closeWithdrawModal()" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.45); z-index:400; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); justify-content:center; align-items:flex-end;">
+        <div id="withdraw-sheet" style="width:100%; background:#fff; border-radius:24px 24px 0 0; padding:0 0 env(safe-area-inset-bottom,20px); transform:translateY(100%); transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);">
+            <!-- 顶部拖拽条 -->
+            <div style="display:flex; justify-content:center; padding:12px 0 4px;">
+                <div style="width:36px; height:4px; border-radius:2px; background:#eee;"></div>
             </div>
             <!-- 标题栏 -->
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 22px 12px;">
-                <div style="font-size:18px; font-weight:800; color:#222; letter-spacing:0.3px;">提现到银行卡</div>
-                <div onclick="closeWithdrawModal()" style="width:32px; height:32px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#888" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 22px 14px;">
+                <div style="font-size:17px; font-weight:700; color:#222;">提现</div>
+                <div onclick="closeWithdrawModal()" style="color:#bbb; font-size:24px; cursor:pointer; line-height:1; font-weight:300;">×</div>
             </div>
-            <div style="padding:0 18px 20px; display:flex; flex-direction:column; gap:14px;">
-                <!-- 金额输入卡片 -->
-                <div style="background:#fff; border-radius:20px; padding:20px 20px 16px; box-shadow:0 4px 16px rgba(0,0,0,0.04);">
-                    <div style="font-size:11px; color:#aaa; font-weight:500; letter-spacing:0.8px; margin-bottom:12px; text-transform:uppercase;">提现金额</div>
-                    <div style="display:flex; align-items:baseline; gap:6px;">
-                        <span style="font-size:28px; color:#27ae60; font-weight:800; line-height:1;">¥</span>
-                        <input type="number" id="withdraw-amount-input" inputmode="decimal" placeholder="0.00" style="flex:1; border:none; outline:none; font-size:36px; font-weight:800; color:#222; background:transparent; font-family:Arial,sans-serif; letter-spacing:-0.5px;">
+            <div style="padding:0 22px 24px; display:flex; flex-direction:column; gap:16px;">
+                <!-- 金额输入区 -->
+                <div>
+                    <div style="font-size:12px; color:#999; margin-bottom:8px; font-weight:500; letter-spacing:0.5px;">提现金额（元）</div>
+                    <div style="display:flex; align-items:center; background:#f7f8fa; border-radius:16px; padding:0 16px; height:56px;">
+                        <span style="font-size:20px; color:#333; font-weight:500; margin-right:8px;">¥</span>
+                        <input type="number" id="withdraw-amount-input" inputmode="decimal" placeholder="0.00" style="flex:1; border:none; outline:none; font-size:28px; font-weight:700; color:#222; background:transparent; font-family:Arial,sans-serif; letter-spacing:-0.5px; padding:0;">
                     </div>
-                    <div style="height:1.5px; background:linear-gradient(90deg,#27ae60,#1e8449); border-radius:1px; margin-top:12px; opacity:0.3;"></div>
                 </div>
-                <!-- 提现目标选择卡片 -->
-                <div style="background:#fff; border-radius:20px; overflow:hidden; box-shadow:0 4px 16px rgba(0,0,0,0.04);">
-                    <div style="padding:14px 18px 10px; font-size:11px; color:#aaa; font-weight:500; letter-spacing:0.8px; text-transform:uppercase;">提现到</div>
-                    <div id="withdraw-target-list" style="max-height:200px; overflow-y:auto;">
+                <!-- 提现目标选择 -->
+                <div>
+                    <div style="font-size:12px; color:#999; margin-bottom:8px; font-weight:500; letter-spacing:0.5px;">提现到</div>
+                    <div id="withdraw-target-list" style="display:flex; flex-direction:column; gap:0; background:#f7f8fa; border-radius:16px; overflow:hidden; max-height:200px; overflow-y:auto;">
                         <!-- 由 JS 动态填充 -->
                     </div>
                 </div>
                 <!-- 确认按钮 -->
-                <div onclick="confirmWithdraw()" style="width:100%; height:54px; background:linear-gradient(135deg,#27ae60,#1e8449); border-radius:20px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 10px 28px rgba(39,174,96,0.35); transition:opacity 0.2s; letter-spacing:0.5px;" onmousedown="this.style.opacity='0.82'" onmouseup="this.style.opacity='1'">
+                <div onclick="confirmWithdraw()" style="width:100%; height:50px; background:#fff; border-radius:25px; display:flex; align-items:center; justify-content:center; color:#666; font-size:15px; font-weight:500; cursor:pointer; transition:all 0.2s; margin-top:4px; letter-spacing:1px; box-shadow:0 6px 20px rgba(0,0,0,0.08);" onmousedown="this.style.background='#f8f8f8';this.style.transform='scale(0.95)'" onmouseup="this.style.background='#fff';this.style.transform='scale(1)'">
                     确认提现
                 </div>
             </div>
@@ -1693,8 +1725,8 @@
         <div class="rp-back-btn" onclick="closeRoleProfile()">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         </div>
-        <!-- 右上角三个点按钮（悬浮在封面上，暂无点击事件） -->
-        <div class="rp-more-btn" id="rp-more-btn">
+        <!-- 右上角三个点按钮（悬浮在封面上） -->
+        <div class="rp-more-btn" id="rp-more-btn" onclick="openChatDetail()">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg>
         </div>
         <!-- 可滚动内容区 -->
@@ -1739,15 +1771,15 @@
                 </div>
             </div>
             <!-- 清空聊天记录 独立圆角矩形 居中无箭头 -->
-            <div class="rp-menu-section" style="margin-top: 14px;">
+            <div class="rp-menu-section" style="margin-top: 32px;">
                 <div class="rp-menu-item" style="justify-content: center;" onclick="clearRpChatHistory()">
                     <span class="rp-menu-label" style="flex: unset; text-align: center; font-size: 14px; color: #555;">清空所有聊天记录</span>
                 </div>
             </div>
-            <!-- 拉黑 独立圆角矩形 居中无箭头 -->
+            <!-- 拉黑/解除拉黑 独立圆角矩形 居中无箭头 -->
             <div class="rp-menu-section" style="margin-top: 14px;">
-                <div class="rp-menu-item" style="justify-content: center;" onclick="blockRpContact()">
-                    <span class="rp-menu-label" style="flex: unset; text-align: center; font-size: 14px; color: #d96a6a;">拉黑</span>
+                <div class="rp-menu-item" style="justify-content: center;" onclick="blockRpContact()" id="rp-block-btn">
+                    <span class="rp-menu-label" id="rp-block-label" style="flex: unset; text-align: center; font-size: 14px; color: #d96a6a;">拉黑</span>
                 </div>
             </div>
         </div>
@@ -1766,6 +1798,199 @@
                 </div>
                 <span>发消息</span>
             </div>
+        </div>
+    </div>
+    <!-- ====== 聊天详情页面 ====== -->
+    <div id="chat-detail-app" class="full-app-page" style="background: #f4f5f7; z-index: 140;">
+        <div class="app-header">
+            <div class="app-back" onclick="closeChatDetail()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <div class="app-title">聊天详情</div>
+            <div style="width:36px;"></div>
+        </div>
+        <div class="app-body" style="padding: 0 0 40px 0; align-items: stretch;">
+
+            <!-- 头像区：角色头像 + 我方头像，一行两个，垂直居中 -->
+            <div class="cd-avatar-row">
+                <!-- 角色头像 -->
+                <div class="cd-avatar-item" onclick="cdChangeRoleAvatar()">
+                    <div class="cd-avatar-wrap" id="cd-role-avatar-wrap">
+                        <img id="cd-role-avatar-img" src="" alt="">
+                        <div class="cd-avatar-edit-badge">
+                            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#fff" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </div>
+                    </div>
+                    <div class="cd-avatar-label" id="cd-role-name-label">角色</div>
+                </div>
+                <!-- 我方头像 -->
+                <div class="cd-avatar-item" onclick="cdChangeUserAvatar()">
+                    <div class="cd-avatar-wrap" id="cd-user-avatar-wrap">
+                        <img id="cd-user-avatar-img" src="" alt="">
+                        <div class="cd-avatar-edit-badge">
+                            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#fff" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </div>
+                    </div>
+                    <div class="cd-avatar-label" id="cd-user-name-label">我</div>
+                </div>
+                <!-- 隐藏文件输入 -->
+                <input type="file" id="cd-role-avatar-input" style="display:none" accept="image/*" onchange="cdHandleRoleAvatarChange(event)">
+                <input type="file" id="cd-user-avatar-input" style="display:none" accept="image/*" onchange="cdHandleUserAvatarChange(event)">
+            </div>
+
+            <!-- 备注设置 -->
+            <div class="cd-section">
+                <div class="cd-section-item" onclick="cdChangeRemark()">
+                    <span class="cd-item-label">备注</span>
+                    <div class="cd-item-right">
+                        <span class="cd-item-value" id="cd-remark-value">未设置</span>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#c8c8c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 聊天壁纸 -->
+            <div class="cd-section" style="margin-top: 12px;">
+                <div class="cd-section-item" onclick="cdChangeWallpaper()">
+                    <span class="cd-item-label">聊天壁纸</span>
+                    <div class="cd-item-right">
+                        <div class="cd-wallpaper-preview" id="cd-wallpaper-preview"></div>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#c8c8c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                    </div>
+                </div>
+                <input type="file" id="cd-wallpaper-input" style="display:none" accept="image/*" onchange="cdHandleWallpaperChange(event)">
+                <!-- 每轮回复条数 -->
+                <div class="cd-divider"></div>
+                <div class="cd-section-item" style="cursor:default;">
+                    <div class="cd-item-label-group">
+                        <span class="cd-item-label">每轮回复条数</span>
+                        <span class="cd-item-desc">角色严格按范围随机输出</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                        <div style="display:flex; align-items:center; gap:4px;">
+                            <span style="font-size:11px; color:#aaa;">至少</span>
+                            <input type="number" id="cd-reply-min" class="cd-count-input" min="1" max="20" value="1" placeholder="1" oninput="cdSaveReplyCount()">
+                            <span style="font-size:11px; color:#aaa;">条</span>
+                        </div>
+                        <span style="font-size:11px; color:#ccc;">—</span>
+                        <div style="display:flex; align-items:center; gap:4px;">
+                            <span style="font-size:11px; color:#aaa;">最多</span>
+                            <input type="number" id="cd-reply-max" class="cd-count-input" min="1" max="20" value="6" placeholder="6" oninput="cdSaveReplyCount()">
+                            <span style="font-size:11px; color:#aaa;">条</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 功能开关组 -->
+            <div class="cd-section" style="margin-top: 12px;">
+                <!-- 时间感知 -->
+                <div class="cd-section-item">
+                    <div class="cd-item-label-group">
+                        <span class="cd-item-label">时间感知</span>
+                        <span class="cd-item-desc">角色能感知当前时间</span>
+                    </div>
+                    <div class="cd-toggle" id="cd-toggle-time" onclick="cdToggle('time')">
+                        <div class="cd-toggle-thumb"></div>
+                    </div>
+                </div>
+                <div class="cd-divider"></div>
+                <!-- 记忆与总结 -->
+                <div class="cd-section-item">
+                    <div class="cd-item-label-group">
+                        <span class="cd-item-label">记忆与总结</span>
+                        <span class="cd-item-desc">自动总结聊天内容作为记忆</span>
+                    </div>
+                    <div class="cd-toggle" id="cd-toggle-memory" onclick="cdToggle('memory')">
+                        <div class="cd-toggle-thumb"></div>
+                    </div>
+                </div>
+                <!-- 记忆与总结展开区 -->
+                <div id="cd-memory-expand" class="cd-memory-expand-box">
+                    <div class="cd-divider"></div>
+                    <!-- 自动总结开关 -->
+                    <div class="cd-section-item cd-memory-sub-item">
+                        <div class="cd-item-label-group">
+                            <span class="cd-item-label" style="font-size:13px; color:#555;">自动总结</span>
+                            <span class="cd-item-desc">达到阈值后自动触发总结</span>
+                        </div>
+                        <div class="cd-toggle cd-toggle-sm" id="cd-toggle-auto-summary" onclick="cdToggle('auto_summary')">
+                            <div class="cd-toggle-thumb"></div>
+                        </div>
+                    </div>
+                    <div class="cd-divider"></div>
+                    <!-- 自动总结阈值 -->
+                    <div class="cd-section-item cd-memory-sub-item" style="cursor:default;">
+                        <div class="cd-item-label-group">
+                            <span class="cd-item-label" style="font-size:13px; color:#555;">自动总结阈值</span>
+                            <span class="cd-item-desc">每隔多少条消息自动总结</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                            <input type="number" id="cd-summary-threshold" class="cd-count-input" min="5" max="200" value="30" placeholder="30" oninput="cdSaveSummaryThreshold()">
+                            <span style="font-size:11px; color:#aaa;">条</span>
+                        </div>
+                    </div>
+                    <div class="cd-divider"></div>
+                    <!-- 立即总结 -->
+                    <div class="cd-section-item cd-memory-sub-item" onclick="cdDoSummaryNow()">
+                        <span class="cd-item-label" style="font-size:13px; color:#555;">立即总结</span>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#c8c8c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                    </div>
+                    <div class="cd-divider"></div>
+                    <!-- 历史总结 -->
+                    <div class="cd-section-item cd-memory-sub-item" onclick="cdOpenSummaryHistory()">
+                        <span class="cd-item-label" style="font-size:13px; color:#555;">历史总结</span>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#c8c8c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                    </div>
+                </div>
+                <div class="cd-divider"></div>
+                <!-- 修罗场模式 -->
+                <div class="cd-section-item">
+                    <div class="cd-item-label-group">
+                        <span class="cd-item-label">修罗场模式</span>
+                        <span class="cd-item-desc">开启高强度情感冲突剧情</span>
+                    </div>
+                    <div class="cd-toggle" id="cd-toggle-drama" onclick="cdToggle('drama')">
+                        <div class="cd-toggle-thumb"></div>
+                    </div>
+                </div>
+                <div class="cd-divider"></div>
+                <!-- 后台保活 -->
+                <div class="cd-section-item">
+                    <div class="cd-item-label-group">
+                        <span class="cd-item-label">后台保活</span>
+                        <span class="cd-item-desc">角色在后台主动发送消息</span>
+                    </div>
+                    <div class="cd-toggle" id="cd-toggle-keepalive" onclick="cdToggle('keepalive')">
+                        <div class="cd-toggle-thumb"></div>
+                    </div>
+                </div>
+                <div class="cd-divider"></div>
+                <!-- 主动发送消息 -->
+                <div class="cd-section-item">
+                    <div class="cd-item-label-group">
+                        <span class="cd-item-label">主动发送消息</span>
+                        <span class="cd-item-desc">角色会主动发起对话</span>
+                    </div>
+                    <div class="cd-toggle" id="cd-toggle-proactive" onclick="cdToggle('proactive')">
+                        <div class="cd-toggle-thumb"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 历史总结弹窗 -->
+            <div id="cd-summary-history-modal" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:200; backdrop-filter:blur(5px); justify-content:center; align-items:center;" onclick="if(event.target===this)cdCloseSummaryHistory()">
+                <div class="preset-card" style="width:88%; max-height:80%; overflow-y:auto; padding-bottom:20px;">
+                    <div class="preset-header" style="justify-content:space-between;">
+                        <span>历史总结</span>
+                        <div onclick="cdCloseSummaryHistory()" style="color:#bbb; font-size:22px; cursor:pointer; line-height:1; font-weight:300;">×</div>
+                    </div>
+                    <div id="cd-summary-history-list" style="padding:15px 20px; display:flex; flex-direction:column; gap:12px; min-height:80px;">
+                        <div style="color:#bbb; font-size:13px; text-align:center; margin-top:20px;">暂无历史总结</div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>

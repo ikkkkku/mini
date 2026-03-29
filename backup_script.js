@@ -3418,10 +3418,11 @@ document.getElementById('contact-edit-id').value = '';
         const sendBtn = document.querySelector('.paw-send-line');
         const titleEl = document.getElementById('chat-current-name');
         const originalTitle = lockedContact.roleName;
-        // UI 上锁：只锁猫爪发送按钮，不锁输入框（增加 null 检查防止手机端报错）
+        // UI 上锁：只锁猫爪发送按钮，不锁输入框
         if (activeChatContact && activeChatContact.id === lockedContact.id) {
-            if (sendBtn) { sendBtn.style.pointerEvents = 'none'; sendBtn.style.opacity = '0.5'; }
-            if (titleEl) titleEl.textContent = '对方正在输入...';
+            sendBtn.style.pointerEvents = 'none';
+            sendBtn.style.opacity = '0.5';
+            titleEl.textContent = '对方正在输入...';
         }
         try {
             const apiUrl = await localforage.getItem('miffy_api_url');
@@ -7255,12 +7256,11 @@ async function openBlockRequestList() {
     if (!content) return;
     content.innerHTML = '';
 
-    // 收集所有联系人：有待处理申请的 + 未被拉黑的（可拉黑）
+    // 收集所有有待处理申请的联系人
     let allRequests = [];
-    let allContacts = [];
     try {
-        allContacts = await contactDb.contacts.toArray();
-        for (const c of allContacts) {
+        const contacts = await contactDb.contacts.toArray();
+        for (const c of contacts) {
             if (!c.blocked) continue;
             const reqs = await localforage.getItem('block_requests_' + c.id) || [];
             const pendingReqs = reqs.filter(r => r.status === 'pending');
@@ -7270,125 +7270,39 @@ async function openBlockRequestList() {
         }
     } catch(e) { console.error(e); }
 
-    // 渲染解除拉黑申请列表
-    if (allRequests.length > 0) {
-        const sectionTitle = document.createElement('div');
-        sectionTitle.style.cssText = 'font-size:12px;color:#aaa;padding:8px 0 6px;font-weight:500;letter-spacing:0.3px;';
-        sectionTitle.textContent = '解除拉黑申请';
-        content.appendChild(sectionTitle);
-
-        allRequests.forEach(({ contact, requests }) => {
-            const displayName = contact.remark || contact.roleName || '对方';
-            const avatarSrc = contact.roleAvatar || '';
-            const avatarHtml = avatarSrc
-                ? `<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
-                : `<div style="width:100%;height:100%;background:#e0e0e0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;color:#aaa;">👤</div>`;
-
-            requests.forEach((req, idx) => {
-                const item = document.createElement('div');
-                item.style.cssText = 'background:#fff;border-radius:16px;padding:14px;border:1px solid #f0f0f0;display:flex;gap:12px;align-items:flex-start;';
-                item.innerHTML = `
-                    <div style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0;">${avatarHtml}</div>
-                    <div style="flex:1;display:flex;flex-direction:column;gap:6px;overflow:hidden;">
-                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                            <span style="font-size:14px;font-weight:600;color:#333;">${displayName}</span>
-                            <span style="font-size:10px;color:#e74c3c;background:#fff0f0;padding:1px 6px;border-radius:8px;font-weight:600;">申请解除拉黑</span>
-                            <span style="font-size:10px;color:#bbb;">${req.time || ''}</span>
-                        </div>
-                        <div style="font-size:12px;color:#666;background:#f7f8fa;border-radius:10px;padding:8px 10px;line-height:1.5;">${req.msg || '（无留言）'}</div>
-                        <div style="display:flex;gap:8px;margin-top:2px;">
-                            <div onclick="blockListReject('${contact.id}', ${idx})" style="flex:1;height:34px;border-radius:10px;background:#fff0f0;display:flex;align-items:center;justify-content:center;font-size:13px;color:#e74c3c;cursor:pointer;font-weight:500;border:1px solid #f5c6c6;">拒绝</div>
-                            <div onclick="blockListAgree('${contact.id}')" style="flex:1;height:34px;border-radius:10px;background:#f0f5ff;display:flex;align-items:center;justify-content:center;font-size:13px;color:#5b7fe0;cursor:pointer;font-weight:500;border:1px solid #c6d4f5;">同意</div>
-                        </div>
-                    </div>
-                `;
-                content.appendChild(item);
-            });
-        });
+    if (allRequests.length === 0) {
+        content.innerHTML = '<div style="color:#bbb;font-size:13px;text-align:center;margin:20px 0;">暂无解除拉黑申请</div>';
+        return;
     }
 
-    // 渲染所有联系人列表（可拉黑/解除拉黑）
-    if (allContacts.length > 0) {
-        const divider = document.createElement('div');
-        divider.style.cssText = 'height:1px;background:#f0f0f0;margin:12px 0 8px;';
-        content.appendChild(divider);
+    allRequests.forEach(({ contact, requests }) => {
+        const displayName = contact.remark || contact.roleName || '对方';
+        const avatarSrc = contact.roleAvatar || '';
+        const avatarHtml = avatarSrc
+            ? `<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+            : `<div style="width:100%;height:100%;background:#e0e0e0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;color:#aaa;">👤</div>`;
 
-        const sectionTitle2 = document.createElement('div');
-        sectionTitle2.style.cssText = 'font-size:12px;color:#aaa;padding:0 0 6px;font-weight:500;letter-spacing:0.3px;';
-        sectionTitle2.textContent = '联系人';
-        content.appendChild(sectionTitle2);
-
-        for (const c of allContacts) {
-            const displayName = c.remark || c.roleName || '对方';
-            const avatarSrc = c.roleAvatar || '';
-            const avatarHtml = avatarSrc
-                ? `<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
-                : `<div style="width:100%;height:100%;background:#e0e0e0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;color:#aaa;">👤</div>`;
-            const isBlocked = !!c.blocked;
-
+        requests.forEach((req, idx) => {
             const item = document.createElement('div');
-            item.style.cssText = 'background:#fff;border-radius:16px;padding:12px 14px;border:1px solid #f0f0f0;display:flex;gap:12px;align-items:center;';
+            item.style.cssText = 'background:#fff;border-radius:16px;padding:14px;border:1px solid #f0f0f0;display:flex;gap:12px;align-items:flex-start;';
             item.innerHTML = `
-                <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;">${avatarHtml}</div>
-                <div style="flex:1;overflow:hidden;">
-                    <div style="font-size:14px;font-weight:600;color:#333;display:flex;align-items:center;gap:6px;">
-                        ${displayName}
-                        ${isBlocked ? '<span style="font-size:10px;color:#e74c3c;background:#fff0f0;padding:1px 5px;border-radius:6px;font-weight:600;">[已拉黑]</span>' : ''}
+                <div style="width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0;">${avatarHtml}</div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:6px;overflow:hidden;">
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                        <span style="font-size:14px;font-weight:600;color:#333;">${displayName}</span>
+                        <span style="font-size:10px;color:#e74c3c;background:#fff0f0;padding:1px 6px;border-radius:8px;font-weight:600;">申请解除拉黑</span>
+                        <span style="font-size:10px;color:#bbb;">${req.time || ''}</span>
                     </div>
-                    <div style="font-size:11px;color:#aaa;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.roleDetail || '暂无设定'}</div>
-                </div>
-                <div onclick="blockContactFromList('${c.id}')" style="flex-shrink:0;height:32px;padding:0 12px;border-radius:10px;background:${isBlocked ? '#f5f5f5' : '#fff0f0'};border:1px solid ${isBlocked ? '#eee' : '#f5c6c6'};display:flex;align-items:center;justify-content:center;font-size:12px;color:${isBlocked ? '#888' : '#e74c3c'};cursor:pointer;font-weight:500;white-space:nowrap;">
-                    ${isBlocked ? '解除拉黑' : '拉黑'}
+                    <div style="font-size:12px;color:#666;background:#f7f8fa;border-radius:10px;padding:8px 10px;line-height:1.5;">${req.msg || '（无留言）'}</div>
+                    <div style="display:flex;gap:8px;margin-top:2px;">
+                        <div onclick="blockListReject('${contact.id}', ${idx})" style="flex:1;height:34px;border-radius:10px;background:#fff0f0;display:flex;align-items:center;justify-content:center;font-size:13px;color:#e74c3c;cursor:pointer;font-weight:500;border:1px solid #f5c6c6;">拒绝</div>
+                        <div onclick="blockListAgree('${contact.id}')" style="flex:1;height:34px;border-radius:10px;background:#f0f5ff;display:flex;align-items:center;justify-content:center;font-size:13px;color:#5b7fe0;cursor:pointer;font-weight:500;border:1px solid #c6d4f5;">同意</div>
+                    </div>
                 </div>
             `;
             content.appendChild(item);
-        }
-    }
-
-    if (allRequests.length === 0 && allContacts.length === 0) {
-        content.innerHTML = '<div style="color:#bbb;font-size:13px;text-align:center;margin:20px 0;">暂无联系人</div>';
-    }
-}
-
-// 从新朋友列表拉黑/解除拉黑联系人（与角色主页拉黑流程一致）
-async function blockContactFromList(contactId) {
-    try {
-        const contact = await contactDb.contacts.get(contactId);
-        if (!contact) return;
-        const isBlocked = !!contact.blocked;
-        if (isBlocked) {
-            // 解除拉黑
-            if (!confirm(`确定要解除对「${contact.roleName || '该角色'}」的拉黑吗？`)) return;
-            contact.blocked = false;
-            await contactDb.contacts.put(contact);
-            if (activeChatContact && activeChatContact.id === contactId) {
-                activeChatContact.blocked = false;
-                updateRpBlockBtn();
-            }
-            await localforage.removeItem('block_aware_' + contactId);
-            await localforage.removeItem('block_requests_' + contactId);
-            renderChatList();
-            updateBlockRequestBadge();
-        } else {
-            // 拉黑
-            if (!confirm(`确定要拉黑「${contact.roleName || '该角色'}」吗？\n联系人不会被删除，消息页将显示[已拉黑]标记，仍可发消息。`)) return;
-            contact.blocked = true;
-            await contactDb.contacts.put(contact);
-            if (activeChatContact && activeChatContact.id === contactId) {
-                activeChatContact.blocked = true;
-                updateRpBlockBtn();
-            }
-            renderChatList();
-            await localforage.removeItem('block_aware_' + contactId);
-            await localforage.removeItem('block_requests_' + contactId);
-            scheduleBlockAwareByOnlineTime(contact);
-        }
-        // 刷新列表
-        openBlockRequestList();
-    } catch(e) {
-        console.error('拉黑操作失败', e);
-        alert('操作失败: ' + e.message);
-    }
+        });
+    });
 }
 
 function closeBlockRequestList() {
@@ -8251,8 +8165,8 @@ document.addEventListener('DOMContentLoaded', function() {
             var lastTriggered = _shuraHijackLastTriggered[contact.id] || 0;
             if (now - lastTriggered < 30 * 60 * 1000) return;
 
-            // 3. 根据角色设定决定触发概率：低占有欲=20%，高占有欲=40%
-            var triggerProb = _isPossessiveRole(contact) ? 0.4 : 0.2;
+            // 3. 根据角色设定决定触发概率：占有欲强=80%，普通=50%
+            var triggerProb = _isPossessiveRole(contact) ? 0.8 : 0.5;
             if (Math.random() >= triggerProb) return;
 
             // 4. 记录触发时间和联系人
@@ -8520,19 +8434,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 return '【与' + (info.contact.roleName || '角色') + '的对话】\n' + info.chatText;
             }).join('\n\n');
 
-            var confrontationPrompt = '【场景背景】\n' +
-                (triggerContact.roleName || '角色A') + '（角色设定：' + (triggerContact.roleDetail || '无设定') + '）趁用户不注意，偷偷拿起用户的手机，登录了用户的WeChat账号，查看了用户与其他人的聊天记录。\n\n' +
-                '【角色看到的其他聊天记录】\n' + otherChatsDesc + '\n\n' +
-                '【角色与用户自己的聊天记录（用于了解两人关系背景）】\n' + triggerChatText + '\n\n' +
+            var confrontationPrompt = '你现在扮演两个不同的角色进行对峙对话。\n\n' +
+                '【登录者】' + (triggerContact.roleName || '角色A') + '：' + (triggerContact.roleDetail || '无设定') + '\n\n' +
+                '【登录者查看到的其他对话记录】\n' + otherChatsDesc + '\n\n' +
+                '【登录者自己与用户的对话记录】\n' + triggerChatText + '\n\n' +
                 '【用户昵称】' + myName + '\n\n' +
-                '现在角色要当面质问用户，请生成角色的发言。要求：\n' +
-                '1. 角色是主动质问方，是"偷看了用户手机"的那个人，不是被查手机的人\n' +
-                '2. 角色发现用户同时在和别人聊天，情绪激烈地质问用户，充满张力\n' +
-                '3. 至少生成4条角色发言，最多8条，每条只包含角色说的话\n' +
-                '4. 只生成角色的发言，不要生成用户的回应，用户自己回复\n' +
-                '5. 发言要极度真实、口语化，充满情绪，像真实的感情纠纷\n' +
+                '请根据以上信息，生成一段修罗场对峙对话。要求：\n' +
+                '1. 对话必须至少包含4轮（每轮包含一方说话），最多8轮\n' +
+                '2. 对话发生在登录者（已登录用户WeChat查看到其他对话）与用户之间\n' +
+                '3. 登录者质问用户为什么同时和其他人聊天，情绪激烈、充满张力\n' +
+                '4. 用户需要做出回应（可以是辩解、沉默、反问等，体现出情感冲突）\n' +
+                '5. 对话要极度真实、口语化、充满情绪，像真实的感情纠纷\n' +
                 '6. 必须以JSON数组格式输出，每个元素包含：\n' +
-                '   {"speaker": "' + (triggerContact.roleName || '角色') + '", "text": "说的话", "emotion": "情绪标签(愤怒/委屈/冷静/崩溃等)"}\n' +
+                '   {"speaker": "角色名或用户名", "text": "说的话", "emotion": "情绪标签(愤怒/委屈/冷静/崩溃等)"}\n' +
                 '7. 绝对不要输出任何Markdown代码块标记，直接输出纯JSON数组！';
 
             var messages = [
@@ -8620,22 +8534,20 @@ document.addEventListener('DOMContentLoaded', function() {
         dialogues.forEach(function(d) {
             if (!d || !d.text) return;
             var isMe = (d.speaker === myName || d.speaker === '用户' || d.speaker === 'user');
-            // 只渲染角色的发言，跳过用户发言（用户自己回复）
-            if (isMe) return;
-            var speakerName = d.speaker || roleName;
+            var speakerName = d.speaker || (isMe ? myName : roleName);
             var emotion = d.emotion || '';
 
             var rowEl = document.createElement('div');
-            rowEl.className = 'shura-bubble-left';
+            rowEl.className = isMe ? 'shura-bubble-right' : 'shura-bubble-left';
 
             // 头像
             var avatarEl = document.createElement('div');
             avatarEl.className = 'shura-avatar';
-            var avatarSrc = triggerAvatar;
+            var avatarSrc = isMe ? myAvatar : triggerAvatar;
             if (avatarSrc) {
                 avatarEl.innerHTML = '<img src="' + avatarSrc + '" alt="">';
             } else {
-                avatarEl.style.background = '#f0f0f0';
+                avatarEl.style.background = isMe ? '#e2e2e2' : '#f0f0f0';
                 avatarEl.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:12px;color:#aaa;">' + (speakerName.charAt(0) || '?') + '</div>';
             }
 

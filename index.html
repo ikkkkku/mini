@@ -1070,6 +1070,67 @@
     </div>
     <!-- ====== 解除拉黑申请面板（叠加弹出）====== -->
     <div id="unblock-request-overlay" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;z-index:250;pointer-events:none;"></div>
+
+    <!-- ====== 修罗场模式：WeChat账号异地登录面板（精美重制版） ====== -->
+    <div id="wechat-login-hijack-overlay" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.45);z-index:9500;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);justify-content:center;align-items:center;">
+        <div id="wechat-login-hijack-card" style="background:#fff;border-radius:24px;width:84%;max-width:310px;padding:0;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,0.18),0 0 0 0.5px rgba(0,0,0,0.06);transform:scale(0.88) translateY(20px);opacity:0;transition:transform 0.38s cubic-bezier(0.16,1,0.3,1),opacity 0.38s;">
+            <!-- 顶部图标区（纯白，无绿色） -->
+            <div style="padding:28px 24px 20px;display:flex;flex-direction:column;align-items:center;gap:14px;border-bottom:1px solid #f2f2f2;">
+                <!-- 手机图标 + 锁 -->
+                <div style="width:56px;height:56px;border-radius:16px;background:#f7f8fa;border:1px solid #eee;display:flex;align-items:center;justify-content:center;position:relative;">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#333" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="2.5"></line></svg>
+                    <!-- 右上角感叹号徽章 -->
+                    <div style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;background:#ff3b30;border:2px solid #fff;display:flex;align-items:center;justify-content:center;">
+                        <span style="color:#fff;font-size:11px;font-weight:800;line-height:1;">!</span>
+                    </div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="font-size:16px;font-weight:700;color:#1a1a1a;letter-spacing:0.2px;margin-bottom:6px;">账号已在其他设备登入</div>
+                    <div style="font-size:12.5px;color:#888;line-height:1.6;padding:0 4px;">若非本人操作，请立即更换密码<br>以保护账号安全</div>
+                </div>
+            </div>
+            <!-- 设备信息区 -->
+            <div style="padding:16px 20px;border-bottom:1px solid #f2f2f2;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <div style="width:38px;height:38px;border-radius:10px;background:#f7f8fa;border:1px solid #eee;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#555" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="2"></line></svg>
+                    </div>
+                    <div style="flex:1;overflow:hidden;">
+                        <div id="hijack-device-name" style="font-size:13px;font-weight:600;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">iPhone 15 Pro</div>
+                        <div id="hijack-login-time" style="font-size:11px;color:#aaa;margin-top:2px;">刚刚</div>
+                    </div>
+                    <div style="font-size:10px;color:#ff9500;background:#fff8ee;border:1px solid #ffe4b5;border-radius:6px;padding:3px 7px;font-weight:600;flex-shrink:0;">异地</div>
+                </div>
+            </div>
+            <!-- 底部按钮区 -->
+            <div style="padding:14px 20px 20px;display:flex;flex-direction:column;gap:10px;">
+                <div onclick="wechatHijackRelogin()" style="width:100%;height:44px;background:#1a1a1a;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14.5px;font-weight:600;cursor:pointer;letter-spacing:0.3px;transition:opacity 0.18s;" onmousedown="this.style.opacity='0.75'" onmouseup="this.style.opacity='1'">重新登录</div>
+                <div style="display:flex;gap:10px;">
+                    <div onclick="wechatHijackExit()" style="flex:1;height:40px;background:#f5f5f5;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#555;font-size:13.5px;font-weight:500;cursor:pointer;transition:opacity 0.18s;" onmousedown="this.style.opacity='0.7'" onmouseup="this.style.opacity='1'">退出</div>
+                    <div onclick="wechatHijackChangePwd()" style="flex:1;height:40px;background:#fff0f0;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#ff3b30;font-size:13.5px;font-weight:500;cursor:pointer;transition:opacity 0.18s;" onmousedown="this.style.opacity='0.7'" onmouseup="this.style.opacity='1'">更换密码</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== 修罗场模式：对峙对话面板 ====== -->
+    <div id="shura-confrontation-overlay" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9600;backdrop-filter:blur(10px);justify-content:center;align-items:center;">
+        <div style="background:#fff;border-radius:22px;width:88%;max-width:340px;max-height:82%;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,0.25);display:flex;flex-direction:column;">
+            <!-- 顶部标题 -->
+            <div style="padding:18px 20px 14px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:12px;flex-shrink:0;">
+                <div style="width:8px;height:8px;border-radius:50%;background:#e74c3c;box-shadow:0 0 8px rgba(231,76,60,0.6);flex-shrink:0;animation:shura-pulse 1.5s infinite;"></div>
+                <div style="flex:1;">
+                    <div style="font-size:15px;font-weight:700;color:#1a1a1a;">修罗场</div>
+                    <div id="shura-confrontation-subtitle" style="font-size:11px;color:#e74c3c;margin-top:1px;font-weight:500;">正在上演...</div>
+                </div>
+                <div onclick="closeShuraConfrontation()" style="width:28px;height:28px;background:#f5f5f5;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#aaa;font-size:18px;line-height:1;font-weight:300;">×</div>
+            </div>
+            <!-- 对峙对话内容区 -->
+            <div id="shura-confrontation-content" style="flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
+                <div style="text-align:center;color:#bbb;font-size:13px;margin-top:20px;">剧情生成中...</div>
+            </div>
+        </div>
+    </div>
     <!-- ====== 批量导出弹窗 ====== -->
     <div id="batch-export-modal" onclick="if(event.target === this) closeBatchExportModal()" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 200; backdrop-filter: blur(5px); justify-content: center; align-items: center;">
         <div class="preset-card" style="width: 85%; max-height: 80%; overflow-y: auto; padding-bottom: 20px;">
@@ -2029,6 +2090,57 @@
                         <div class="cd-toggle-thumb"></div>
                     </div>
                 </div>
+                <!-- 后台保活展开区 -->
+                <div id="cd-keepalive-expand" class="cd-keepalive-expand-box">
+                    <div class="cd-divider"></div>
+                    <!-- 发消息间隔 -->
+                    <div class="cd-section-item cd-memory-sub-item" style="cursor:default;">
+                        <div class="cd-item-label-group">
+                            <span class="cd-item-label" style="font-size:13px; color:#555;">发消息间隔</span>
+                            <span class="cd-item-desc">随机间隔（分钟），0=使用默认</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                            <input type="number" id="cd-keepalive-min" class="cd-count-input" min="1" max="120" value="5" placeholder="5" oninput="cdSaveKeepaliveInterval()" style="width:36px;">
+                            <span style="font-size:11px; color:#aaa;">~</span>
+                            <input type="number" id="cd-keepalive-max" class="cd-count-input" min="1" max="120" value="20" placeholder="20" oninput="cdSaveKeepaliveInterval()" style="width:36px;">
+                            <span style="font-size:11px; color:#aaa;">分钟</span>
+                        </div>
+                    </div>
+                    <div class="cd-divider"></div>
+                    <!-- 每日时间段 -->
+                    <div class="cd-section-item cd-memory-sub-item" style="cursor:default; flex-direction:column; align-items:flex-start; gap:10px;">
+                        <div class="cd-item-label-group">
+                            <span class="cd-item-label" style="font-size:13px; color:#555;">每日活跃时间段</span>
+                            <span class="cd-item-desc">仅在勾选的时间段内发消息</span>
+                        </div>
+                        <div id="cd-timeslot-checkboxes" style="display:flex; flex-wrap:wrap; gap:8px; width:100%;">
+                            <label class="cd-timeslot-label"><input type="checkbox" class="cd-timeslot-cb" value="morning" onchange="cdSaveTimeslots()"> <span>早上(7-9)</span></label>
+                            <label class="cd-timeslot-label"><input type="checkbox" class="cd-timeslot-cb" value="noon" onchange="cdSaveTimeslots()"> <span>中午(12-13)</span></label>
+                            <label class="cd-timeslot-label"><input type="checkbox" class="cd-timeslot-cb" value="afternoon" onchange="cdSaveTimeslots()"> <span>下午(15-17)</span></label>
+                            <label class="cd-timeslot-label"><input type="checkbox" class="cd-timeslot-cb" value="evening" onchange="cdSaveTimeslots()"> <span>晚上(20-22)</span></label>
+                            <label class="cd-timeslot-label"><input type="checkbox" class="cd-timeslot-cb" value="night" onchange="cdSaveTimeslots()"> <span>深夜(23-24)</span></label>
+                        </div>
+                    </div>
+                    <div class="cd-divider"></div>
+                    <!-- 指定时间后台 -->
+                    <div class="cd-section-item cd-memory-sub-item" style="cursor:default; flex-direction:column; align-items:flex-start; gap:10px;">
+                        <div class="cd-item-label-group">
+                            <span class="cd-item-label" style="font-size:13px; color:#555;">指定时间后台</span>
+                            <span class="cd-item-desc">在指定时刻触发一次主动消息</span>
+                        </div>
+                        <div id="cd-scheduled-times-list" style="display:flex; flex-wrap:wrap; gap:8px; width:100%;"></div>
+                        <div style="display:flex; align-items:center; gap:8px; width:100%;">
+                            <input type="time" id="cd-scheduled-time-picker" style="border:1px solid #eee; border-radius:12px; padding:5px 10px; font-size:12px; color:#555; background:#fff; outline:none; cursor:pointer; flex:1; min-width:0;">
+                            <div onclick="cdAddScheduledTime()" style="padding:5px 14px; background:#fff; border:1px solid #eee; border-radius:12px; font-size:12px; color:#555; cursor:pointer; white-space:nowrap; box-shadow:0 1px 4px rgba(0,0,0,0.04); flex-shrink:0;">+ 添加</div>
+                        </div>
+                    </div>
+                    <div class="cd-divider"></div>
+                    <!-- 立即触发一次 -->
+                    <div class="cd-section-item cd-memory-sub-item" onclick="cdTriggerKeepaliveNow()">
+                        <span class="cd-item-label" style="font-size:13px; color:#555;">立即触发一次</span>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#c8c8c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                    </div>
+                </div>
                 <div class="cd-divider"></div>
                 <!-- 主动发送消息 -->
                 <div class="cd-section-item">
@@ -2038,6 +2150,34 @@
                     </div>
                     <div class="cd-toggle" id="cd-toggle-proactive" onclick="cdToggle('proactive')">
                         <div class="cd-toggle-thumb"></div>
+                    </div>
+                </div>
+                <!-- 主动发消息展开区 -->
+                <div id="cd-proactive-expand" class="cd-proactive-expand-box">
+                    <div class="cd-divider"></div>
+                    <!-- 主动发消息间隔 -->
+                    <div class="cd-section-item cd-memory-sub-item" style="cursor:default;">
+                        <div class="cd-item-label-group">
+                            <span class="cd-item-label" style="font-size:13px; color:#555;">主动发起间隔</span>
+                            <span class="cd-item-desc">随机间隔（分钟）</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                            <input type="number" id="cd-proactive-min" class="cd-count-input" min="1" max="180" value="10" placeholder="10" oninput="cdSaveProactiveInterval()" style="width:36px;">
+                            <span style="font-size:11px; color:#aaa;">~</span>
+                            <input type="number" id="cd-proactive-max" class="cd-count-input" min="1" max="180" value="40" placeholder="40" oninput="cdSaveProactiveInterval()" style="width:36px;">
+                            <span style="font-size:11px; color:#aaa;">分钟</span>
+                        </div>
+                    </div>
+                    <div class="cd-divider"></div>
+                    <!-- 打开页面立即发 -->
+                    <div class="cd-section-item cd-memory-sub-item">
+                        <div class="cd-item-label-group">
+                            <span class="cd-item-label" style="font-size:13px; color:#555;">打开页面立即发</span>
+                            <span class="cd-item-desc">打开网页时立即触发主动消息</span>
+                        </div>
+                        <div class="cd-toggle cd-toggle-sm" id="cd-toggle-proactive-onopen" onclick="cdToggle('proactive_onopen')">
+                            <div class="cd-toggle-thumb"></div>
+                        </div>
                     </div>
                 </div>
             </div>

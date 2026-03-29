@@ -2031,33 +2031,57 @@ document.getElementById('contact-edit-id').value = '';
     // 横幅通知控制函数
     let notifTimer = null;
     // 修改：新增 contactId 参数用于点击跳转
-    function showNotificationBanner(avatar, name, message, timeStr, contactId) {
+    // 通知队列：支持多条消息依次显示，每条显示2秒后自动切换到下一条
+    let _notifQueue = [];
+    let _notifPlaying = false;
+    function _playNotifQueue() {
+        if (_notifPlaying || _notifQueue.length === 0) return;
+        _notifPlaying = true;
+        const { avatar, name, message, timeStr, contactId } = _notifQueue.shift();
         const banner = document.getElementById('notification-banner');
         document.getElementById('notif-avatar-img').src = avatar;
         document.getElementById('notif-name-text').textContent = name;
         document.getElementById('notif-msg-text').textContent = message;
         document.getElementById('notif-time-text').textContent = timeStr;
-        // 新增：保存 contactId 到属性中
         if (contactId) banner.setAttribute('data-contact-id', contactId);
         banner.classList.add('show');
         if (notifTimer) clearTimeout(notifTimer);
         notifTimer = setTimeout(() => {
             banner.classList.remove('show');
-        }, 2000); // 2秒后自动收起
+            _notifPlaying = false;
+            if (_notifQueue.length > 0) {
+                // 短暂间隔后显示下一条
+                setTimeout(_playNotifQueue, 400);
+            }
+        }, 2000);
+    }
+    function showNotificationBanner(avatar, name, message, timeStr, contactId) {
+        // 将通知加入队列，依次播放，确保每条消息都能被看到
+        _notifQueue.push({ avatar, name, message, timeStr, contactId });
+        _playNotifQueue();
     }
     // 新增：横幅点击与向上滑动关闭事件监听
     document.addEventListener('DOMContentLoaded', () => {
         const banner = document.getElementById('notification-banner');
         let bannerStartY = 0;
+        // 辅助：关闭当前横幅并继续播放队列
+        function _dismissBannerAndContinue() {
+            banner.classList.remove('show');
+            if (notifTimer) { clearTimeout(notifTimer); notifTimer = null; }
+            _notifPlaying = false;
+            // 继续播放队列中剩余的通知
+            if (_notifQueue.length > 0) {
+                setTimeout(_playNotifQueue, 400);
+            }
+        }
         // 点击横幅进入聊天
         banner.addEventListener('click', () => {
             const contactId = banner.getAttribute('data-contact-id');
             if (contactId) {
                 document.getElementById('wechat-app').style.display = 'flex';
                 enterChatWindow(contactId);
-                banner.classList.remove('show');
-                if (notifTimer) clearTimeout(notifTimer);
             }
+            _dismissBannerAndContinue();
         });
         // 向上滑动关闭
         banner.addEventListener('touchstart', (e) => {
@@ -2066,8 +2090,7 @@ document.getElementById('contact-edit-id').value = '';
         banner.addEventListener('touchmove', (e) => {
             const currentY = e.touches[0].clientY;
             if (bannerStartY - currentY > 15) { // 向上滑动超过 15px 立即关闭
-                banner.classList.remove('show');
-                if (notifTimer) clearTimeout(notifTimer);
+                _dismissBannerAndContinue();
             }
         }, {passive: true});
     });
@@ -3691,7 +3714,6 @@ ${langInstruction}
                         ]
                     });
                 } else if (isEmoticon) {
-
                     messages.push({
                         role: msg.sender === 'me' ? 'user' : 'assistant',
                         content: `[发送了一个表情包，描述为：${emoticonDesc}]`
@@ -3706,12 +3728,55 @@ ${langInstruction}
                     if (cleanContent.includes('msg-original-text')) {
                         cleanContent = cleanContent.replace(/<div class="msg-original-text">([\s\S]*?)<\/div><div class="msg-translate-divider"><\/div><div class="msg-translated-text">([\s\S]*?)<\/div>/g, '$1 ($2)');
                     }
+                    // 提取纯文本，防止空内容导致 API 报错 (contents is required)
+                    let pureContent = extractMsgPureText(cleanContent);
+                    if (!pureContent || !pureContent.trim()) return; // 跳过空内容消息
                     messages.push({
                         role: msg.sender === 'me' ? 'user' : 'assistant',
-                        content: cleanContent
+                        content: pureContent
                     });
                 }
             });
+
+            // 修复：确保 messages 数组中不存在连续相同 role 的消息（部分 API 如 Gemini 不允许）
+            // 且确保最后一条消息是 user 角色（否则 Gemini 报 contents is required）
+            const filteredMessages = [messages[0]]; // 保留 system prompt
+            for (let i = 1; i < messages.length; i++) {
+                const cur = messages[i];
+                const prev = filteredMessages[filteredMessages.length - 1];
+                if (prev && prev.role === cur.role && prev.role !== 'system') {
+                    // 合并相同 role 的相邻消息
+                    if (typeof prev.content === 'string' && typeof cur.content === 'string') {
+                        prev.content = prev.content + '\n' + cur.content;
+                    }
+                } else {
+                    filteredMessages.push(cur);
+                }
+            }
+            // 若最后一条不是 user，根据上下文数量生成主动话题触发消息（不再使用固定的"请继续"）
+            const lastMsg2 = filteredMessages[filteredMessages.length - 1];
+            if (!lastMsg2 || lastMsg2.role !== 'user') {
+                // 根据聊天详情设置的上下文条数（ctxLimit）来决定主动话题的风格
+                const _msgCount = rawMessages.length;
+                let _proactiveTopic = '';
+                if (_msgCount === 0) {
+                    // 完全没有聊天记录：主动打招呼开场
+                    _proactiveTopic = '（现在主动发起对话，用符合你角色性格的方式打招呼，开始一段新的对话，不要重复之前说过的任何内容）';
+                } else if (_msgCount <= 5) {
+                    // 刚刚开始聊天：延续但引入新话题
+                    _proactiveTopic = '（主动找一个新话题继续聊，不要重复刚才说过的内容，结合你的角色性格自然地引出新的话题方向）';
+                } else if (_msgCount <= 20) {
+                    // 有一定聊天基础：基于已有内容延伸或转换话题
+                    _proactiveTopic = '（根据我们聊过的内容，主动延伸一个新的话题角度，或者分享你此刻的状态/心情/想法，不要重复之前说过的话）';
+                } else {
+                    // 聊天记录较多：主动分享新鲜事或引发互动
+                    _proactiveTopic = '（主动分享你现在的状态、生活中发生的事，或者提出一个想和我聊的新话题，语气自然，不要重复之前的对话内容）';
+                }
+                filteredMessages.push({ role: 'user', content: _proactiveTopic });
+            }
+            // 替换 messages 数组
+            messages.length = 0;
+            filteredMessages.forEach(function(m) { messages.push(m); });
         const cleanApiUrl = apiUrl.replace(/\/+$/, '').replace(/\/v1$/, '');
         const endpoint = `${cleanApiUrl}/v1/chat/completions`;
             let response;
@@ -3868,6 +3933,10 @@ ${langInstruction}
             // 角色回复完成后，AI自主判断是否拉黑用户（5%概率触发）
             // 在 finally 中异步执行，不阻塞主流程
             checkAutoRoleBlockUser(lockedContact).catch(e => console.error('自主拉黑判断失败', e));
+            // 修罗场模式：角色回复后检测是否触发WeChat账号异地登录（用户长时间不回复时）
+            if (typeof window._shuraCheckAfterRoleReply === 'function') {
+                window._shuraCheckAfterRoleReply(lockedContact).catch(e => console.error('[修罗场] finally触发失败', e));
+            }
         }
     }
     // ====== 角色拉黑用户系统 ======
@@ -4188,6 +4257,10 @@ ${langInstruction}
             bindMsgEvents();
             input.value = '';
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+            // 修罗场模式：用户发消息时重置沉默计时器
+            if (typeof window._shuraOnUserSendMsg === 'function') {
+                window._shuraOnUserSendMsg(activeChatContact.id);
+            }
             // 【注意】角色不自动回复普通消息。被拉黑状态下也不触发自动回复。
             // 只有在非拉黑状态且调用 triggerRoleReply 时才会触发回复。
             // triggerRoleReply(); // 已禁用，角色不自动回复
@@ -6404,6 +6477,73 @@ function _renderBills() {
             }
         }
 
+        // 恢复后台保活展开区显示状态
+        var keepaliveOn = await localforage.getItem(cdKey('toggle_keepalive'));
+        var keepaliveExpand = document.getElementById('cd-keepalive-expand');
+        if (keepaliveExpand) {
+            if (keepaliveOn) {
+                keepaliveExpand.classList.add('open');
+            } else {
+                keepaliveExpand.classList.remove('open');
+            }
+        }
+
+        // 恢复主动发消息展开区显示状态
+        var proactiveOn = await localforage.getItem(cdKey('toggle_proactive'));
+        var proactiveExpand = document.getElementById('cd-proactive-expand');
+        if (proactiveExpand) {
+            if (proactiveOn) {
+                proactiveExpand.classList.add('open');
+            } else {
+                proactiveExpand.classList.remove('open');
+            }
+        }
+
+        // 恢复后台保活间隔设置
+        var kMinKey = cdKey('keepalive_min');
+        var kMaxKey = cdKey('keepalive_max');
+        var kMin = kMinKey ? await localforage.getItem(kMinKey) : null;
+        var kMax = kMaxKey ? await localforage.getItem(kMaxKey) : null;
+        var kMinEl = document.getElementById('cd-keepalive-min');
+        var kMaxEl = document.getElementById('cd-keepalive-max');
+        if (kMinEl && kMin !== null) kMinEl.value = kMin;
+        if (kMaxEl && kMax !== null) kMaxEl.value = kMax;
+
+        // 恢复每日时间段复选框
+        var timeslotsKey = cdKey('timeslots');
+        var savedTimeslots = timeslotsKey ? (await localforage.getItem(timeslotsKey) || []) : [];
+        var timeslotCbs = document.querySelectorAll('.cd-timeslot-cb');
+        timeslotCbs.forEach(function(cb) {
+            cb.checked = savedTimeslots.includes(cb.value);
+        });
+
+        // 恢复主动发消息间隔设置
+        var pMinKey = cdKey('proactive_min');
+        var pMaxKey = cdKey('proactive_max');
+        var pMin = pMinKey ? await localforage.getItem(pMinKey) : null;
+        var pMax = pMaxKey ? await localforage.getItem(pMaxKey) : null;
+        var pMinEl = document.getElementById('cd-proactive-min');
+        var pMaxEl = document.getElementById('cd-proactive-max');
+        if (pMinEl && pMin !== null) pMinEl.value = pMin;
+        if (pMaxEl && pMax !== null) pMaxEl.value = pMax;
+
+        // 恢复"打开页面立即发"开关
+        var proactiveOnOpenKey = cdKey('toggle_proactive_onopen');
+        var proactiveOnOpenVal = proactiveOnOpenKey ? await localforage.getItem(proactiveOnOpenKey) : false;
+        var proactiveOnOpenToggle = document.getElementById('cd-toggle-proactive-onopen');
+        if (proactiveOnOpenToggle) {
+            if (proactiveOnOpenVal) {
+                proactiveOnOpenToggle.classList.add('on');
+            } else {
+                proactiveOnOpenToggle.classList.remove('on');
+            }
+        }
+
+        // 恢复指定时间列表
+        var scheduledTimesKey = cdKey('scheduled_times');
+        var savedScheduledTimes = scheduledTimesKey ? (await localforage.getItem(scheduledTimesKey) || []) : [];
+        _cdRenderScheduledTimes(savedScheduledTimes);
+
         // 同步角色拉黑用户按钮状态
         updateRoleBlockUserBtn();
 
@@ -6438,6 +6578,30 @@ function _renderBills() {
             }
         }
 
+        // 后台保活开关联动展开区
+        if (name === 'keepalive') {
+            var keepaliveExpand = document.getElementById('cd-keepalive-expand');
+            if (keepaliveExpand) {
+                if (isOn) {
+                    keepaliveExpand.classList.add('open');
+                } else {
+                    keepaliveExpand.classList.remove('open');
+                }
+            }
+        }
+
+        // 主动发消息开关联动展开区
+        if (name === 'proactive') {
+            var proactiveExpand = document.getElementById('cd-proactive-expand');
+            if (proactiveExpand) {
+                if (isOn) {
+                    proactiveExpand.classList.add('open');
+                } else {
+                    proactiveExpand.classList.remove('open');
+                }
+            }
+        }
+
         // 备注改动后同步角色名标签
         if (name === 'remark') {
             // 重新同步 roleLabel（备注可能变化）
@@ -6453,6 +6617,133 @@ function _renderBills() {
             }
         }
     };
+
+    // 保存后台保活间隔
+    window.cdSaveKeepaliveInterval = async function() {
+        if (!activeChatContact) return;
+        var minEl = document.getElementById('cd-keepalive-min');
+        var maxEl = document.getElementById('cd-keepalive-max');
+        if (!minEl || !maxEl) return;
+        var minVal = parseInt(minEl.value) || 5;
+        var maxVal = parseInt(maxEl.value) || 20;
+        if (minVal < 1) { minEl.value = 1; minVal = 1; }
+        if (maxVal < minVal) { maxEl.value = minVal; maxVal = minVal; }
+        var kMinKey = cdKey('keepalive_min');
+        var kMaxKey = cdKey('keepalive_max');
+        if (kMinKey) await localforage.setItem(kMinKey, minVal);
+        if (kMaxKey) await localforage.setItem(kMaxKey, maxVal);
+    };
+
+    // 保存每日时间段
+    window.cdSaveTimeslots = async function() {
+        if (!activeChatContact) return;
+        var checkboxes = document.querySelectorAll('.cd-timeslot-cb');
+        var selected = [];
+        checkboxes.forEach(function(cb) { if (cb.checked) selected.push(cb.value); });
+        var key = cdKey('timeslots');
+        if (key) await localforage.setItem(key, selected);
+    };
+
+    // 渲染指定时间标签列表
+    function _cdRenderScheduledTimes(times) {
+        var list = document.getElementById('cd-scheduled-times-list');
+        if (!list) return;
+        list.innerHTML = '';
+        if (!times || times.length === 0) return;
+        times.forEach(function(t) {
+            var tag = document.createElement('div');
+            tag.style.cssText = 'display:flex; align-items:center; gap:5px; background:#fff; border:1px solid #eee; border-radius:14px; padding:4px 10px; font-size:12px; color:#555; cursor:default;';
+            tag.innerHTML = '<span>' + t + '</span><span onclick="cdRemoveScheduledTime(\'' + t + '\')" style="color:#ccc; cursor:pointer; font-size:14px; line-height:1; margin-left:2px; font-family:Arial,sans-serif;">×</span>';
+            list.appendChild(tag);
+        });
+    }
+
+    // 添加指定时间
+    window.cdAddScheduledTime = async function() {
+        if (!activeChatContact) return;
+        var picker = document.getElementById('cd-scheduled-time-picker');
+        if (!picker || !picker.value) return;
+        var timeVal = picker.value; // "HH:MM"
+        var key = cdKey('scheduled_times');
+        var saved = key ? (await localforage.getItem(key) || []) : [];
+        if (saved.includes(timeVal)) return; // 已存在则不重复添加
+        saved.push(timeVal);
+        saved.sort(); // 按时间排序
+        if (key) await localforage.setItem(key, saved);
+        _cdRenderScheduledTimes(saved);
+        picker.value = '';
+    };
+
+    // 删除指定时间
+    window.cdRemoveScheduledTime = async function(timeVal) {
+        if (!activeChatContact) return;
+        var key = cdKey('scheduled_times');
+        var saved = key ? (await localforage.getItem(key) || []) : [];
+        saved = saved.filter(function(t) { return t !== timeVal; });
+        if (key) await localforage.setItem(key, saved);
+        _cdRenderScheduledTimes(saved);
+    };
+
+    // 保存主动发消息间隔
+    window.cdSaveProactiveInterval = async function() {
+        if (!activeChatContact) return;
+        var minEl = document.getElementById('cd-proactive-min');
+        var maxEl = document.getElementById('cd-proactive-max');
+        if (!minEl || !maxEl) return;
+        var minVal = parseInt(minEl.value) || 10;
+        var maxVal = parseInt(maxEl.value) || 40;
+        if (minVal < 1) { minEl.value = 1; minVal = 1; }
+        if (maxVal < minVal) { maxEl.value = minVal; maxVal = minVal; }
+        var pMinKey = cdKey('proactive_min');
+        var pMaxKey = cdKey('proactive_max');
+        if (pMinKey) await localforage.setItem(pMinKey, minVal);
+        if (pMaxKey) await localforage.setItem(pMaxKey, maxVal);
+    };
+
+    // 立即触发一次后台保活
+    window.cdTriggerKeepaliveNow = async function() {
+        if (!activeChatContact) return;
+        var contact = activeChatContact;
+        var btn = document.querySelector('#cd-keepalive-expand .cd-section-item[onclick="cdTriggerKeepaliveNow()"] .cd-item-label');
+        if (btn) { btn.textContent = '触发中...'; }
+        try {
+            isReplying = false;
+            var prevActive = activeChatContact;
+            activeChatContact = contact;
+            await triggerRoleReply();
+            if (activeChatContact && activeChatContact.id === contact.id) {
+                activeChatContact = prevActive;
+            }
+            isReplying = false;
+            // 发送通知
+            var msgs = await chatListDb.messages.where('contactId').equals(contact.id).toArray();
+            if (msgs.length > 0) {
+                var lastMsg = msgs[msgs.length - 1];
+                if (lastMsg.sender === 'role') {
+                    var msgText = extractMsgPureText(lastMsg.content);
+                    if (msgText) {
+                        var displayName = await _getDisplayNameForContact(contact);
+                        var avatarSrc = contact.roleAvatar || '';
+                        showNotificationBanner(avatarSrc, displayName, msgText, getAmPmTime(), contact.id);
+                    }
+                }
+            }
+        } catch(e) {
+            console.error('[立即触发] 失败', e);
+        } finally {
+            isReplying = false;
+            if (btn) { btn.textContent = '立即触发一次'; }
+        }
+    };
+
+    // 辅助：获取联系人显示名（备注优先）
+    async function _getDisplayNameForContact(contact) {
+        try {
+            var remark = await localforage.getItem('cd_settings_' + contact.id + '_remark');
+            if (remark && remark !== '未设置') return remark;
+        } catch(e) {}
+        return contact.roleName || '角色';
+    }
 
     // 保存每轮回复条数
     window.cdSaveReplyCount = async function() {
@@ -7740,6 +8031,597 @@ document.addEventListener('DOMContentLoaded', function() {
 
 })();
 
+// ====== 修罗场模式：WeChat账号异地登录劫持系统 ======
+(function() {
+    'use strict';
+
+    // 用于记录每个联系人上次触发时间，防止重复触发
+    var _shuraHijackLastTriggered = {}; // contactId -> timestamp
+    // 用于记录已在检测中的联系人，防止并发重复
+    var _shuraHijackChecking = {};
+    // 当前触发劫持的联系人ID
+    var _shuraHijackContactId = null;
+    // 当前触发劫持的联系人对象（用于注入上下文防失忆）
+    var _shuraHijackContact = null;
+    // 对峙对话是否正在生成
+    var _shuraConfrontationRunning = false;
+    // 记录每个联系人最后一次用户发消息时间（用于判断沉默）
+    var _shuraLastUserMsgTime = {}; // contactId -> timestamp
+    // 后台沉默检测定时器
+    var _shuraSilenceTimers = {}; // contactId -> timer
+
+    // 设备名称随机池
+    var _deviceNames = [
+        'iPhone 15 Pro', 'iPhone 14', 'iPhone 13 Pro Max',
+        'Samsung Galaxy S24', 'Xiaomi 14 Pro', 'OPPO Find X7',
+        'Huawei Mate 60 Pro', 'OnePlus 12', 'Vivo X100 Pro',
+        'iPad Pro 13寸', 'MacBook Pro 16寸'
+    ];
+
+    // 占有欲强关键词（用于判断是否提升触发概率到80%）
+    var _possessiveKeywords = [
+        '占有欲', '霸道', '偏执', '强势', '独占', '嫉妒', '控制欲', '不允许',
+        '只能是我的', '不能离开', '死缠烂打', '执着', '固执', '腹黑', '强占'
+    ];
+
+    /**
+     * 判断角色是否有占有欲（80%概率触发）
+     */
+    function _isPossessiveRole(contact) {
+        var detail = (contact.roleDetail || '').toLowerCase();
+        return _possessiveKeywords.some(function(kw) { return detail.includes(kw); });
+    }
+
+    /**
+     * 用户发消息时更新沉默计时器
+     * 每次用户发消息后，重新启动10分钟沉默检测
+     */
+    function _shuraResetSilenceTimer(contactId) {
+        _shuraLastUserMsgTime[contactId] = Date.now();
+        // 清除旧定时器
+        if (_shuraSilenceTimers[contactId]) {
+            clearTimeout(_shuraSilenceTimers[contactId]);
+            delete _shuraSilenceTimers[contactId];
+        }
+        // 10分钟后检测（如果用户一直没回复）
+        _shuraSilenceTimers[contactId] = setTimeout(async function() {
+            delete _shuraSilenceTimers[contactId];
+            try {
+                var fresh = await contactDb.contacts.get(contactId);
+                if (!fresh) return;
+                var dramaOn = await localforage.getItem('cd_settings_' + contactId + '_toggle_drama');
+                if (!dramaOn) return;
+                await checkShuraModeHijack(fresh);
+            } catch(e) { console.error('[修罗场] 沉默定时器触发失败', e); }
+        }, 10 * 60 * 1000); // 10分钟
+    }
+
+    /**
+     * 角色发消息后启动沉默检测（如果用户此后10分钟不回复则触发）
+     */
+    function _shuraStartSilenceWatchAfterRoleMsg(contactId) {
+        // 如果用户已经超过10分钟没发消息，直接检测
+        var lastUserMsg = _shuraLastUserMsgTime[contactId] || 0;
+        var silentDuration = Date.now() - lastUserMsg;
+        if (lastUserMsg > 0 && silentDuration >= 10 * 60 * 1000) {
+            // 用户已经沉默超过10分钟，立即尝试触发
+            contactDb.contacts.get(contactId).then(async function(fresh) {
+                if (!fresh) return;
+                var dramaOn = await localforage.getItem('cd_settings_' + contactId + '_toggle_drama');
+                if (!dramaOn) return;
+                await checkShuraModeHijack(fresh);
+            }).catch(function(e) { console.error('[修罗场] 立即检测失败', e); });
+        } else if (lastUserMsg === 0) {
+            // 用户从未发过消息（刚开始聊天），也启动10分钟等待
+            if (!_shuraSilenceTimers[contactId]) {
+                _shuraSilenceTimers[contactId] = setTimeout(async function() {
+                    delete _shuraSilenceTimers[contactId];
+                    try {
+                        var fresh = await contactDb.contacts.get(contactId);
+                        if (!fresh) return;
+                        var dramaOn = await localforage.getItem('cd_settings_' + contactId + '_toggle_drama');
+                        if (!dramaOn) return;
+                        await checkShuraModeHijack(fresh);
+                    } catch(e) { console.error('[修罗场] 首次沉默检测失败', e); }
+                }, 10 * 60 * 1000);
+            }
+        }
+        // 如果用户最近发过消息但还不到10分钟，等待剩余时间
+        else {
+            var remaining = 10 * 60 * 1000 - silentDuration;
+            if (!_shuraSilenceTimers[contactId] && remaining > 0) {
+                _shuraSilenceTimers[contactId] = setTimeout(async function() {
+                    delete _shuraSilenceTimers[contactId];
+                    try {
+                        var fresh = await contactDb.contacts.get(contactId);
+                        if (!fresh) return;
+                        var dramaOn = await localforage.getItem('cd_settings_' + contactId + '_toggle_drama');
+                        if (!dramaOn) return;
+                        await checkShuraModeHijack(fresh);
+                    } catch(e) { console.error('[修罗场] 剩余等待检测失败', e); }
+                }, remaining);
+            }
+        }
+    }
+
+    /**
+     * 核心入口：修罗场模式下，用户沉默10分钟后触发
+     * 普通角色50%概率，占有欲强角色80%概率
+     * @param {Object} contact - 当前联系人对象
+     */
+    async function checkShuraModeHijack(contact) {
+        if (!contact || !contact.id) return;
+        // 防并发
+        if (_shuraHijackChecking[contact.id]) return;
+        _shuraHijackChecking[contact.id] = true;
+
+        try {
+            // 1. 检查修罗场模式开关是否开启
+            var dramaOn = await localforage.getItem('cd_settings_' + contact.id + '_toggle_drama');
+            if (!dramaOn) return;
+
+            // 2. 防止短时间内重复触发（同一联系人至少间隔30分钟）
+            var now = Date.now();
+            var lastTriggered = _shuraHijackLastTriggered[contact.id] || 0;
+            if (now - lastTriggered < 30 * 60 * 1000) return;
+
+            // 3. 根据角色设定决定触发概率：占有欲强=80%，普通=50%
+            var triggerProb = _isPossessiveRole(contact) ? 0.8 : 0.5;
+            if (Math.random() >= triggerProb) return;
+
+            // 4. 记录触发时间和联系人
+            _shuraHijackLastTriggered[contact.id] = now;
+            _shuraHijackContactId = contact.id;
+            _shuraHijackContact = contact;
+
+            // 5. 设置设备信息
+            var deviceName = _deviceNames[Math.floor(Math.random() * _deviceNames.length)];
+            var deviceEl = document.getElementById('hijack-device-name');
+            if (deviceEl) deviceEl.textContent = deviceName;
+            var timeEl = document.getElementById('hijack-login-time');
+            if (timeEl) {
+                var nowDate = new Date();
+                var hh = String(nowDate.getHours()).padStart(2,'0');
+                var mm = String(nowDate.getMinutes()).padStart(2,'0');
+                timeEl.textContent = hh + ':' + mm + ' 刚刚登录';
+            }
+
+            // 6. 显示面板（带入场动画）
+            var overlay = document.getElementById('wechat-login-hijack-overlay');
+            var card = document.getElementById('wechat-login-hijack-card');
+            if (!overlay || !card) return;
+            overlay.style.display = 'flex';
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    card.style.transform = 'scale(1)';
+                    card.style.opacity = '1';
+                });
+            });
+
+            // 7. 将登录事件写入聊天记录（让角色知道自己登录了）
+            var loginEventContent = JSON.stringify({
+                type: 'shura_login_event',
+                content: '[系统]' + (contact.roleName || '对方') + ' 刚刚登录了你的WeChat账号，正在查看你的聊天记录。'
+            });
+            await chatListDb.messages.add({
+                contactId: contact.id,
+                sender: 'system',
+                content: loginEventContent,
+                timeStr: getAmPmTime(),
+                quoteText: '',
+                isSystemTip: true,
+                source: 'wechat'
+            });
+            renderChatList();
+
+            // 8. 后台：角色查看其他角色对话并生成对峙内容（异步执行，不阻塞面板显示）
+            _shuraGenerateConfrontation(contact).catch(function(e) {
+                console.error('[修罗场] 对峙生成失败', e);
+            });
+
+        } catch(e) {
+            console.error('[修罗场] 检测失败', e);
+        } finally {
+            _shuraHijackChecking[contact.id] = false;
+        }
+    }
+
+    /**
+     * 用户点击"重新登录"按钮
+     * - 关闭面板，模拟将角色踢出
+     * - 在聊天记录中插入系统提示（灰色，非绿色）
+     */
+    window.wechatHijackRelogin = async function() {
+        var overlay = document.getElementById('wechat-login-hijack-overlay');
+        var card = document.getElementById('wechat-login-hijack-card');
+        if (card) { card.style.transform = 'scale(0.88) translateY(20px)'; card.style.opacity = '0'; }
+        setTimeout(function() {
+            if (overlay) overlay.style.display = 'none';
+        }, 380);
+
+        if (!_shuraHijackContactId) return;
+        try {
+            var contact = await contactDb.contacts.get(_shuraHijackContactId);
+            if (!contact) return;
+            var roleName = contact.roleName || '对方';
+            var timeStr = getAmPmTime();
+
+            // 在聊天记录插入系统提示（灰色，不用绿色）
+            var sysContent = JSON.stringify({
+                type: 'shura_relogin',
+                content: '你已重新登录，' + roleName + ' 的异地登录已被踢出。'
+            });
+            await chatListDb.messages.add({
+                contactId: contact.id,
+                sender: 'system',
+                content: sysContent,
+                timeStr: timeStr,
+                quoteText: '',
+                isSystemTip: true,
+                source: 'wechat'
+            });
+            var chat = await chatListDb.chats.where('contactId').equals(contact.id).first();
+            if (chat) await chatListDb.chats.update(chat.id, { lastTime: timeStr });
+            renderChatList();
+
+            // 如果聊天窗口打开，刷新显示（灰色系统小字，无颜色）
+            var chatWin = document.getElementById('chat-window');
+            if (chatWin && chatWin.style.display === 'flex' && activeChatContact && activeChatContact.id === contact.id) {
+                var container = document.getElementById('chat-msg-container');
+                if (container) {
+                    var tip = document.createElement('div');
+                    tip.className = 'msg-recalled-tip';
+                    tip.textContent = '你已重新登录，异地设备已被踢出。';
+                    container.appendChild(tip);
+                    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+                }
+            }
+
+            // 角色知道被踢出后，触发一次回复（角色会基于上下文中的登录事件来回应）
+            if (contact && !isReplying) {
+                setTimeout(async function() {
+                    try {
+                        var prevActive = activeChatContact;
+                        activeChatContact = contact;
+                        isReplying = false;
+                        await triggerRoleReply();
+                        if (activeChatContact && activeChatContact.id === contact.id) {
+                            activeChatContact = prevActive;
+                        }
+                        isReplying = false;
+                    } catch(e) { console.error('[修罗场] 踢出后角色回复失败', e); }
+                }, 1500);
+            }
+        } catch(e) { console.error('[修罗场] 重新登录处理失败', e); }
+    };
+
+    /**
+     * 用户点击"退出"按钮 - 关闭面板
+     */
+    window.wechatHijackExit = function() {
+        var overlay = document.getElementById('wechat-login-hijack-overlay');
+        var card = document.getElementById('wechat-login-hijack-card');
+        if (card) { card.style.transform = 'scale(0.88) translateY(20px)'; card.style.opacity = '0'; }
+        setTimeout(function() {
+            if (overlay) overlay.style.display = 'none';
+        }, 380);
+    };
+
+    /**
+     * 用户点击"更换密码"按钮 - 关闭面板，插入系统提示
+     */
+    window.wechatHijackChangePwd = async function() {
+        var overlay = document.getElementById('wechat-login-hijack-overlay');
+        var card = document.getElementById('wechat-login-hijack-card');
+        if (card) { card.style.transform = 'scale(0.88) translateY(20px)'; card.style.opacity = '0'; }
+        setTimeout(function() {
+            if (overlay) overlay.style.display = 'none';
+        }, 380);
+
+        if (!_shuraHijackContactId) return;
+        try {
+            var contact = await contactDb.contacts.get(_shuraHijackContactId);
+            if (!contact) return;
+            var timeStr = getAmPmTime();
+            var sysContent = JSON.stringify({
+                type: 'shura_pwd_changed',
+                content: '你已更换微信密码，异地设备已自动退出登录。'
+            });
+            await chatListDb.messages.add({
+                contactId: contact.id,
+                sender: 'system',
+                content: sysContent,
+                timeStr: timeStr,
+                quoteText: '',
+                isSystemTip: true,
+                source: 'wechat'
+            });
+            var chat = await chatListDb.chats.where('contactId').equals(contact.id).first();
+            if (chat) await chatListDb.chats.update(chat.id, { lastTime: timeStr });
+            renderChatList();
+
+            var chatWin = document.getElementById('chat-window');
+            if (chatWin && chatWin.style.display === 'flex' && activeChatContact && activeChatContact.id === contact.id) {
+                var container = document.getElementById('chat-msg-container');
+                if (container) {
+                    var tip = document.createElement('div');
+                    tip.className = 'msg-recalled-tip';
+                    tip.textContent = '你已更换微信密码，异地设备已自动退出登录。';
+                    container.appendChild(tip);
+                    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+                }
+            }
+        } catch(e) { console.error('[修罗场] 更换密码处理失败', e); }
+    };
+
+    /**
+     * 对外暴露：用户发消息时调用，重置沉默计时器
+     */
+    window._shuraOnUserSendMsg = function(contactId) {
+        if (contactId) _shuraResetSilenceTimer(contactId);
+    };
+
+    /**
+     * 对外暴露：角色发消息后调用，启动沉默监测
+     */
+    window._shuraOnRoleSendMsg = function(contactId) {
+        if (contactId) _shuraStartSilenceWatchAfterRoleMsg(contactId);
+    };
+
+    /**
+     * 对外暴露：获取当前触发劫持的联系人（用于在system prompt中注入上下文）
+     */
+    window._shuraGetHijackContact = function() {
+        return _shuraHijackContact;
+    };
+
+    /**
+     * 核心：角色登录用户WeChat后，查看其他角色的对话内容，
+     * 并调用API生成3轮以上的对峙对话，展示在对峙面板中
+     * @param {Object} triggerContact - 触发劫持的角色（登录者）
+     */
+    async function _shuraGenerateConfrontation(triggerContact) {
+        if (_shuraConfrontationRunning) return;
+        _shuraConfrontationRunning = true;
+
+        try {
+            var apiUrl = await localforage.getItem('miffy_api_url');
+            var apiKey = await localforage.getItem('miffy_api_key');
+            var model = await localforage.getItem('miffy_api_model');
+            var temp = parseFloat(await localforage.getItem('miffy_api_temp')) || 0.8;
+            if (!apiUrl || !apiKey || !model) return;
+
+            // 1. 获取所有联系人
+            var allContacts = await contactDb.contacts.toArray();
+            // 排除触发者自身
+            var otherContacts = allContacts.filter(function(c) { return c.id !== triggerContact.id; });
+            if (otherContacts.length === 0) return;
+
+            // 2. 收集其他角色的聊天记录摘要（最多取每个角色最近10条）
+            var otherChatsInfo = [];
+            for (var i = 0; i < Math.min(otherContacts.length, 3); i++) {
+                var oc = otherContacts[i];
+                var ocMsgs = await chatListDb.messages.where('contactId').equals(oc.id).toArray();
+                var recentOcMsgs = ocMsgs.slice(-10);
+                if (recentOcMsgs.length === 0) continue;
+                var chatText = recentOcMsgs.map(function(m) {
+                    var sender = m.sender === 'me' ? '用户' : (oc.roleName || '角色');
+                    return sender + '：' + extractMsgPureText(m.content);
+                }).join('\n');
+                otherChatsInfo.push({
+                    contact: oc,
+                    chatText: chatText
+                });
+            }
+
+            if (otherChatsInfo.length === 0) return;
+
+            // 3. 获取触发者的最近聊天记录
+            var triggerMsgs = await chatListDb.messages.where('contactId').equals(triggerContact.id).toArray();
+            var recentTriggerMsgs = triggerMsgs.slice(-8);
+            var triggerChatText = recentTriggerMsgs.map(function(m) {
+                var sender = m.sender === 'me' ? '用户' : (triggerContact.roleName || '角色');
+                return sender + '：' + extractMsgPureText(m.content);
+            }).join('\n');
+
+            // 4. 获取用户昵称
+            var myName = '用户';
+            var myNameEl = document.getElementById('text-wechat-me-name');
+            if (myNameEl) myName = myNameEl.textContent || '用户';
+
+            // 5. 构建对峙对话生成Prompt
+            var otherChatsDesc = otherChatsInfo.map(function(info) {
+                return '【与' + (info.contact.roleName || '角色') + '的对话】\n' + info.chatText;
+            }).join('\n\n');
+
+            var confrontationPrompt = '你现在扮演两个不同的角色进行对峙对话。\n\n' +
+                '【登录者】' + (triggerContact.roleName || '角色A') + '：' + (triggerContact.roleDetail || '无设定') + '\n\n' +
+                '【登录者查看到的其他对话记录】\n' + otherChatsDesc + '\n\n' +
+                '【登录者自己与用户的对话记录】\n' + triggerChatText + '\n\n' +
+                '【用户昵称】' + myName + '\n\n' +
+                '请根据以上信息，生成一段修罗场对峙对话。要求：\n' +
+                '1. 对话必须至少包含4轮（每轮包含一方说话），最多8轮\n' +
+                '2. 对话发生在登录者（已登录用户WeChat查看到其他对话）与用户之间\n' +
+                '3. 登录者质问用户为什么同时和其他人聊天，情绪激烈、充满张力\n' +
+                '4. 用户需要做出回应（可以是辩解、沉默、反问等，体现出情感冲突）\n' +
+                '5. 对话要极度真实、口语化、充满情绪，像真实的感情纠纷\n' +
+                '6. 必须以JSON数组格式输出，每个元素包含：\n' +
+                '   {"speaker": "角色名或用户名", "text": "说的话", "emotion": "情绪标签(愤怒/委屈/冷静/崩溃等)"}\n' +
+                '7. 绝对不要输出任何Markdown代码块标记，直接输出纯JSON数组！';
+
+            var messages = [
+                { role: 'system', content: confrontationPrompt },
+                { role: 'user', content: '请生成修罗场对峙对话。' }
+            ];
+
+            var cleanApiUrl = apiUrl.replace(/\/+$/, '').replace(/\/v1$/, '');
+            var endpoint = cleanApiUrl + '/v1/chat/completions';
+
+            var response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + apiKey
+                },
+                body: JSON.stringify({ model: model, messages: messages, temperature: temp })
+            });
+
+            if (!response.ok) return;
+            var data = await response.json();
+            var replyText = data.choices[0].message.content.trim();
+
+            // 6. 解析JSON
+            var dialogues = [];
+            try {
+                var firstBracket = replyText.indexOf('[');
+                var lastBracket = replyText.lastIndexOf(']');
+                if (firstBracket !== -1 && lastBracket !== -1) {
+                    replyText = replyText.substring(firstBracket, lastBracket + 1);
+                }
+                dialogues = JSON.parse(replyText);
+                if (!Array.isArray(dialogues)) throw new Error('not array');
+            } catch(e) {
+                console.warn('[修罗场] 对话JSON解析失败', e);
+                return;
+            }
+
+            if (dialogues.length < 3) return;
+
+            // 7. 渲染对峙对话面板
+            _renderShuraConfrontation(triggerContact, otherChatsInfo, dialogues, myName);
+
+        } catch(e) {
+            console.error('[修罗场] 对峙生成出错', e);
+        } finally {
+            _shuraConfrontationRunning = false;
+        }
+    }
+
+    /**
+     * 渲染对峙对话面板
+     */
+    function _renderShuraConfrontation(triggerContact, otherChatsInfo, dialogues, myName) {
+        var overlay = document.getElementById('shura-confrontation-overlay');
+        var content = document.getElementById('shura-confrontation-content');
+        var subtitle = document.getElementById('shura-confrontation-subtitle');
+        if (!overlay || !content) return;
+
+        // 更新副标题
+        if (subtitle) {
+            var otherNames = otherChatsInfo.map(function(i) { return i.contact.roleName || '角色'; }).join('、');
+            subtitle.textContent = (triggerContact.roleName || '角色') + ' 查看了你与 ' + otherNames + ' 的对话';
+        }
+
+        // 清空并填充内容
+        content.innerHTML = '';
+
+        // 顶部说明
+        var tipEl = document.createElement('div');
+        tipEl.className = 'shura-system-tip';
+        tipEl.textContent = '⚠️ ' + (triggerContact.roleName || '对方') + ' 登录了你的WeChat，查看了你与其他人的聊天记录';
+        content.appendChild(tipEl);
+
+        // 分隔线
+        var divider = document.createElement('div');
+        divider.style.cssText = 'height:1px;background:#f0f0f0;margin:4px 0 8px;';
+        content.appendChild(divider);
+
+        // 逐条渲染对话
+        var triggerAvatar = triggerContact.roleAvatar || '';
+        var myAvatar = triggerContact.userAvatar || '';
+        var roleName = triggerContact.roleName || '对方';
+
+        dialogues.forEach(function(d) {
+            if (!d || !d.text) return;
+            var isMe = (d.speaker === myName || d.speaker === '用户' || d.speaker === 'user');
+            var speakerName = d.speaker || (isMe ? myName : roleName);
+            var emotion = d.emotion || '';
+
+            var rowEl = document.createElement('div');
+            rowEl.className = isMe ? 'shura-bubble-right' : 'shura-bubble-left';
+
+            // 头像
+            var avatarEl = document.createElement('div');
+            avatarEl.className = 'shura-avatar';
+            var avatarSrc = isMe ? myAvatar : triggerAvatar;
+            if (avatarSrc) {
+                avatarEl.innerHTML = '<img src="' + avatarSrc + '" alt="">';
+            } else {
+                avatarEl.style.background = isMe ? '#e2e2e2' : '#f0f0f0';
+                avatarEl.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:12px;color:#aaa;">' + (speakerName.charAt(0) || '?') + '</div>';
+            }
+
+            // 消息包裹
+            var wrapEl = document.createElement('div');
+            wrapEl.className = 'shura-msg-wrap';
+
+            // 名字+情绪
+            var nameEl = document.createElement('div');
+            nameEl.className = 'shura-name';
+            nameEl.textContent = speakerName + (emotion ? ' · ' + emotion : '');
+
+            // 文字气泡
+            var textEl = document.createElement('div');
+            textEl.className = 'shura-text';
+            textEl.textContent = d.text;
+
+            wrapEl.appendChild(nameEl);
+            wrapEl.appendChild(textEl);
+            rowEl.appendChild(avatarEl);
+            rowEl.appendChild(wrapEl);
+            content.appendChild(rowEl);
+        });
+
+        // 底部提示
+        var bottomTip = document.createElement('div');
+        bottomTip.className = 'shura-system-tip';
+        bottomTip.textContent = '— 对峙结束 —';
+        content.appendChild(bottomTip);
+
+        // 显示面板（延迟500ms，让WeChat登录面板先显示）
+        setTimeout(function() {
+            overlay.style.display = 'flex';
+        }, 500);
+    }
+
+    /**
+     * 关闭对峙面板
+     */
+    window.closeShuraConfrontation = function() {
+        var overlay = document.getElementById('shura-confrontation-overlay');
+        if (overlay) overlay.style.display = 'none';
+    };
+
+    /**
+     * 对外暴露检测函数，供后台保活系统调用
+     */
+    window._checkShuraModeHijack = checkShuraModeHijack;
+
+})();
+
+// ====== 修罗场模式：在用户长时间不回复时触发劫持检测 ======
+(function() {
+    // 修罗场触发检测：每次角色回复后直接尝试触发
+    // 触发条件：修罗场模式开关开启 + 50%概率 + 30分钟冷却
+    async function _shuraCheckAfterRoleReply(contact) {
+        if (!contact) return;
+        try {
+            var dramaOn = await localforage.getItem('cd_settings_' + contact.id + '_toggle_drama');
+            if (!dramaOn) return;
+
+            // 直接调用修罗场劫持检测（内部有50%概率和冷却时间控制）
+            if (typeof window._checkShuraModeHijack === 'function') {
+                await window._checkShuraModeHijack(contact);
+            }
+        } catch(e) {
+            console.error('[修罗场] 触发检测失败', e);
+        }
+    }
+
+    // 暴露给外部：角色回复完成后调用此函数
+    window._shuraCheckAfterRoleReply = _shuraCheckAfterRoleReply;
+})();
+
 // ====== 后台保活 & 主动发消息 & 每天时间段发消息 & Web Push 通知系统 ======
 (function() {
     'use strict';
@@ -8064,6 +8946,41 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (keepaliveOn) _startKeepalive(contact);
                 var proactiveOn = await localforage.getItem('cd_settings_' + contact.id + '_toggle_proactive');
                 if (proactiveOn) _startProactive(contact);
+
+                // ====== 打开页面立即发：若开启则在页面加载后随机延迟触发一次 ======
+                var proactiveOnOpenOn = await localforage.getItem('cd_settings_' + contact.id + '_toggle_proactive_onopen');
+                if (proactiveOnOpenOn) {
+                    // 随机延迟 3~15 秒，避免多个角色同时触发
+                    var openDelay = (Math.floor(Math.random() * 13) + 3) * 1000;
+                    (function(c) {
+                        setTimeout(async function() {
+                            try {
+                                var fresh = await contactDb.contacts.get(c.id);
+                                if (!fresh) return;
+                                // 再次检查开关，防止用户关闭后还触发
+                                var stillOn = await localforage.getItem('cd_settings_' + fresh.id + '_toggle_proactive_onopen');
+                                if (!stillOn) return;
+                                var prevActive = activeChatContact;
+                                activeChatContact = fresh;
+                                isReplying = false;
+                                await triggerRoleReply();
+                                if (activeChatContact && activeChatContact.id === fresh.id) {
+                                    activeChatContact = prevActive;
+                                }
+                                isReplying = false;
+                                // 发送通知
+                                var msgs = await chatListDb.messages.where('contactId').equals(fresh.id).toArray();
+                                if (msgs.length > 0) {
+                                    var lastMsg = msgs[msgs.length - 1];
+                                    if (lastMsg.sender === 'role') {
+                                        var msgText = extractMsgPureText(lastMsg.content);
+                                        if (msgText) await _sendNotification(fresh, msgText);
+                                    }
+                                }
+                            } catch(e2) { console.error('[打开页面立即发] 失败', e2); }
+                        }, openDelay);
+                    })(contact);
+                }
             }
         } catch(e) { console.error('[恢复定时器] 失败', e); }
         // 启动时间段调度器
@@ -8072,9 +8989,66 @@ document.addEventListener('DOMContentLoaded', function() {
         _requestNotificationPermission().catch(() => {});
     }
 
+    // ====== 指定时间后台：精确时刻触发系统 ======
+    var _scheduledTimeLastFired = {}; // contactId_HH:MM -> date string
+
+    // 每分钟检查一次是否到达指定时刻
+    async function _checkScheduledTimes() {
+        var now = new Date();
+        var hh = String(now.getHours()).padStart(2, '0');
+        var mm = String(now.getMinutes()).padStart(2, '0');
+        var currentTimeStr = hh + ':' + mm;
+        var dateStr = now.getFullYear() + '-' + (now.getMonth()+1) + '-' + now.getDate();
+
+        try {
+            var contacts = await contactDb.contacts.toArray();
+            for (var i = 0; i < contacts.length; i++) {
+                var contact = contacts[i];
+                // 指定时间独立触发：只要该联系人设置了指定时间，无需开启保活或主动发消息
+                var scheduledTimesKey = 'cd_settings_' + contact.id + '_scheduled_times';
+                var scheduledTimes = await localforage.getItem(scheduledTimesKey) || [];
+                if (!scheduledTimes.includes(currentTimeStr)) continue;
+
+                var fireKey = contact.id + '_' + currentTimeStr;
+                var lastFired = _scheduledTimeLastFired[fireKey];
+                if (lastFired === dateStr) continue; // 今天这个时刻已触发过
+
+                _scheduledTimeLastFired[fireKey] = dateStr;
+
+                // 异步触发
+                (async function(c) {
+                    try {
+                        var fresh = await contactDb.contacts.get(c.id);
+                        if (!fresh) return;
+                        var prevActive = activeChatContact;
+                        activeChatContact = fresh;
+                        isReplying = false;
+                        await triggerRoleReply();
+                        if (activeChatContact && activeChatContact.id === fresh.id) {
+                            activeChatContact = prevActive;
+                        }
+                        isReplying = false;
+                        var msgs = await chatListDb.messages.where('contactId').equals(fresh.id).toArray();
+                        if (msgs.length > 0) {
+                            var lastMsg = msgs[msgs.length - 1];
+                            if (lastMsg.sender === 'role') {
+                                var msgText = extractMsgPureText(lastMsg.content);
+                                if (msgText) await _sendNotification(fresh, msgText);
+                            }
+                        }
+                    } catch(e2) { console.error('[指定时间触发] 失败', e2); }
+                })(contact);
+            }
+        } catch(e) { console.error('[指定时间检查] 失败', e); }
+    }
+
     // 页面加载完成后启动
     document.addEventListener('DOMContentLoaded', function() {
         setTimeout(_restoreAllTimers, 2000);
+        // 启动指定时间检查器（每分钟检查一次）
+        setInterval(_checkScheduledTimes, 60 * 1000);
+        // 页面加载后立即检查一次（可能刚好到达某个指定时刻）
+        setTimeout(_checkScheduledTimes, 5000);
     });
 
     // ====== appendRoleMessage 增强：后台发消息时也触发系统通知 ======

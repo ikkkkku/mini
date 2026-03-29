@@ -78,8 +78,9 @@
         /* 背景 */
         .phone-screen {
             width: 100%; height: 100%;
-            background: linear-gradient(90deg, rgba(220,220,220,0.15) 1px, transparent 1px),
-                        linear-gradient(rgba(220,220,220,0.15) 1px, transparent 1px);
+            background-color: #f0f0f0;
+            background-image: linear-gradient(90deg, rgba(200,200,200,0.3) 1px, transparent 1px),
+                        linear-gradient(rgba(200,200,200,0.3) 1px, transparent 1px);
             background-size: 25px 25px; position: relative;
             /* 修复：电脑端必须裁剪溢出，防止全屏应用页面在手机壳外显示 */
             overflow: hidden;
@@ -91,7 +92,7 @@
         .top-music-bar { display: flex; justify-content: center; gap: 15px; align-items: center; margin-top: 15px; margin-bottom: 5px; }
         .music-title-pill { background: rgba(255, 255, 255, 0.85); padding: 7px 16px; border-radius: 20px; font-size: 11px; color: #888; box-shadow: 0 2px 15px rgba(0,0,0,0.03); backdrop-filter: blur(15px); letter-spacing: 0.5px; }
 .music-play-btn { width: 30px; height: 30px; border-radius: 50%; background: rgba(225, 225, 225, 0.7); display: flex; justify-content: center; align-items: center; color: #fff; backdrop-filter: blur(15px); padding-left: 1.5px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
-        .profile-card { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; min-height: 90px; border-radius: 28px !important; width: 100%; box-sizing: border-box; }
+        .profile-card { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; }
 /* 新增：胶囊式日期包裹层 */
 .date-pill { background: #fff; padding: 2px 10px; border-radius: 28px; font-size: 11px; color: #999; margin-left: 8px; font-weight: normal; display: inline-flex; align-items: center; justify-content: center; height: 20px; transform: translateY(-1px); }
 /* 新增：天气/星期组合 */
@@ -3314,17 +3315,17 @@ img {
 /* 分割线处的圆形头像容器 */
 .cp-profile-avatar-wrap {
     position: absolute;
-    top: 50px; /* 背景图高度 - 头像半径 */
+    top: 46px; /* 背景图高度 - 头像半径 */
     left: 50%;
     transform: translateX(-50%);
     z-index: 5;
 }
 .cp-profile-avatar {
-    width: 54px;
-    height: 54px;
+    width: 68px;
+    height: 68px;
     border-radius: 50%;
     overflow: hidden;
-    border: 3px solid rgba(255,255,255,0.9);
+    border: 2px solid rgba(255,255,255,0.9);
     background: rgba(255,255,255,0.2);
     box-shadow: 0 4px 12px rgba(0,0,0,0.25);
     cursor: pointer;
@@ -3336,32 +3337,33 @@ img {
 }
 /* 下半部分磨砂玻璃 */
 .cp-profile-glass {
-    background: rgba(255,255,255,0.12);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    padding: 36px 16px 16px; /* 顶部留出头像空间 */
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    padding: 52px 16px 18px; /* 顶部留出头像空间 */
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    border-top: 1px solid rgba(255,255,255,0.15);
+    gap: 6px;
+    border-top: none;
 }
 .cp-profile-name {
-    font-size: 15px;
-    font-weight: 600;
-    color: rgba(255,255,255,0.95);
-    letter-spacing: 0.3px;
+    font-size: 18px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.97);
+    letter-spacing: 0.5px;
     cursor: pointer;
     text-align: center;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.25);
 }
 .cp-profile-name:active { opacity: 0.7; }
 .cp-profile-sig {
-    font-size: 11px;
-    color: rgba(255,255,255,0.6);
+    font-size: 13px;
+    color: rgba(255,255,255,0.75);
     text-align: center;
-    letter-spacing: 0.2px;
+    letter-spacing: 0.3px;
     cursor: pointer;
-    line-height: 1.4;
+    line-height: 1.5;
 }
 .cp-profile-sig:active { opacity: 0.7; }
 
@@ -3617,16 +3619,16 @@ img {
     left: 12px;
     right: 12px;
     z-index: 20;
-    background: rgba(20, 20, 35, 0.82);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.18);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    border: 1px solid rgba(255,255,255,0.3);
     border-radius: 22px;
     padding: 16px 14px 14px;
     display: none;
     flex-direction: column;
     gap: 10px;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.2);
     transform: translateY(10px) scale(0.96);
     opacity: 0;
     transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1), opacity 0.22s ease;
@@ -3638,11 +3640,12 @@ img {
 }
 .cp-custom-panel-title {
     font-size: 11px;
-    color: rgba(255,255,255,0.5);
+    color: rgba(255,255,255,0.7);
     letter-spacing: 1px;
-    font-weight: 500;
+    font-weight: 600;
     padding: 0 4px 2px;
     text-transform: uppercase;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 .cp-custom-row {
     display: flex;
@@ -3691,12 +3694,22 @@ img {
     /* 强制正方形：宽高相等 */
     aspect-ratio: 1 / 1 !important;
     overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
 }
 .cp-profile-bg {
     height: 50% !important; /* 上半部分占一半高度 */
+    flex-shrink: 0 !important;
 }
 .cp-profile-avatar-wrap {
-    top: calc(50% - 27px) !important; /* 背景图底部 - 头像半径 */
+    top: calc(50% - 34px) !important; /* 背景图底部 - 头像半径（头像68px，半径34px） */
+}
+/* 头像尺寸加大，改为阴影 */
+.cp-profile-avatar {
+    width: 68px !important;
+    height: 68px !important;
+    border: none !important;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3) !important;
 }
 /* 分割线两端圆角 */
 .cp-profile-glass::before {
@@ -3712,7 +3725,10 @@ img {
 .cp-profile-glass {
     position: relative;
     border-top: none !important; /* 移除原来的直线，用伪元素替代 */
-    padding-top: 40px !important; /* 增加顶部内边距留出头像空间 */
+    padding-top: 44px !important; /* 增加顶部内边距留出头像空间 */
+    flex: 1 !important; /* 撑满下半部分 */
+    height: 50% !important;
+    box-sizing: border-box !important;
 }
 
 /* 个性签名可点击编辑提示 */
@@ -3738,3 +3754,74 @@ img {
 /* ====== 查手机：桌面壁纸使用渐变而非头像 ====== */
 /* 解锁后壁纸保持深色渐变，不覆盖为头像 */
 /* 通过 JS 中不设置 cp-unlocked-wallpaper 的 background 来实现 */
+
+
+/* 对峙对话气泡 */
+.shura-bubble-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    align-self: flex-start;
+    max-width: 90%;
+}
+.shura-bubble-right {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    align-self: flex-end;
+    flex-direction: row-reverse;
+    max-width: 90%;
+}
+.shura-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: #f0f0f0;
+    border: 1.5px solid #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+.shura-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.shura-msg-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.shura-name {
+    font-size: 10px;
+    color: #aaa;
+    font-weight: 500;
+    padding: 0 4px;
+}
+.shura-bubble-right .shura-name {
+    text-align: right;
+}
+.shura-text {
+    padding: 8px 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    word-break: break-word;
+    border-radius: 2px 14px 14px 14px;
+    background: #fff;
+    color: #333;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    border: 1px solid #f0f0f0;
+}
+.shura-bubble-right .shura-text {
+    border-radius: 14px 2px 14px 14px;
+    background: #ffe8e8;
+    color: #c0392b;
+    border-color: #fdd;
+}
+.shura-system-tip {
+    text-align: center;
+    font-size: 11px;
+    color: #aaa;
+    padding: 4px 0;
+    font-style: italic;
+}

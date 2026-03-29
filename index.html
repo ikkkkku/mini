@@ -26,8 +26,8 @@
     <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
     <link rel="stylesheet" href="style.css">
     <style>
-        /* 性能优化：页面加载时手机壳先隐藏，等JS恢复完成后再显示，防止图标/壁纸闪烁 */
-        .phone-shell { opacity: 0; transition: opacity 0.25s ease; }
+        /* 修复电脑端黑屏：移除 opacity:0 隐藏，改为直接显示，防止JS错误导致永久黑屏 */
+        .phone-shell { opacity: 1; }
     </style>
     <script>
         /* 性能优化：在页面解析时立即恢复 UI 缩放，避免加载后跳动 */
@@ -192,7 +192,7 @@
                         <div class="icon-grid" style="flex:1;">
                             <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>占位</span></div>
                             <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>闲鱼</span></div>
-                            <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>查手机</span></div>
+                            <div class="app-icon" id="app-btn-checkphone"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>查手机</span></div>
                             <div class="app-icon"><div class="icon-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></div><span>情侣空间</span></div>
                         </div>
                     </div>

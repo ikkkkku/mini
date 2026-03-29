@@ -2165,7 +2165,18 @@ document.getElementById('contact-edit-id').value = '';
             }
         }
         const isChecked = selectedMsgIds.has(msg.id) ? 'checked' : '';
-        let msgBodyHtml = `<div class="msg-text-body">${msg.content}</div>`;
+        // 安全转义并处理换行：将纯文本中的 \n 转为 <br>，防止 XSS 同时保留换行格式
+        function _safeTextHtml(raw) {
+            if (!raw) return '';
+            // 先转义 HTML 特殊字符，再把换行转为 <br>
+            return raw
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/\n/g, '<br>');
+        }
+        let msgBodyHtml = `<div class="msg-text-body">${_safeTextHtml(msg.content)}</div>`;
         let isCameraMsg = false;
         let cameraDesc = '';
         let isImageMsg = false;
@@ -3661,13 +3672,17 @@ ${langInstruction}
                     }
                 } catch(e) {}
                 if (isImage) {
-                    // 修复：直接发送 Base64 图片给支持视觉的模型，让角色真正看到图片内容
+                    // 用 image 格式发送 base64 图片给支持视觉的模型
                     messages.push({
                         role: msg.sender === 'me' ? 'user' : 'assistant',
                         content: [
                             {
-                                type: 'image_url',
-                                image_url: { url: imageBase64 }
+                                type: 'image',
+                                source: {
+                                    type: 'base64',
+                                    media_type: imageBase64.match(/^data:(image\/[a-zA-Z+]+);base64,/) ? imageBase64.match(/^data:(image\/[a-zA-Z+]+);base64,/)[1] : 'image/jpeg',
+                                    data: imageBase64.replace(/^data:image\/[a-zA-Z+]+;base64,/, '')
+                                }
                             },
                             {
                                 type: 'text',
@@ -7090,40 +7105,31 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('sms-app').style.display = 'none';
     };
 
-    // 渲染信息列表（只显示有 SMS 消息的联系人）
+    // 渲染信息列表：直接显示所有联系人，不需要手动添加
+    // 每个联系人显示其 SMS 消息预览（严格隔离 WeChat 消息）
     async function renderSmsList() {
         var container = document.getElementById('sms-list-container');
         if (!container) return;
         try {
-            var chats = await chatListDb.chats.toArray();
-            // 置顶排前面
-            chats.sort(function(a, b) { return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0); });
+            // 直接读取所有联系人，不依赖 chats 表过滤
+            var contacts = await contactDb.contacts.toArray();
 
-            // 过滤：只保留有 SMS 消息（source === 'sms'）的联系人，严格排除WeChat消息
-            var smsChats = [];
-            for (var i = 0; i < chats.length; i++) {
-                var chat = chats[i];
-                var smsMsgs = await chatListDb.messages.where('contactId').equals(chat.contactId).toArray();
-                var hasSms = smsMsgs.some(function(m) { return m.source === 'sms'; });
-                if (hasSms) smsChats.push(chat);
-            }
-
-            if (smsChats.length === 0) {
-                container.innerHTML = '<div id="sms-no-msg-tip" style="color:#bbb; font-size:13px; margin-top:120px; text-align:center;">暂无短信</div>';
+            if (contacts.length === 0) {
+                container.innerHTML = '<div id="sms-no-msg-tip" style="color:#bbb; font-size:13px; margin-top:120px; text-align:center;">暂无联系人，请先在 WeChat 中添加</div>';
                 return;
             }
             container.innerHTML = '';
 
-            for (var i = 0; i < smsChats.length; i++) {
-                var chat = smsChats[i];
-                var contact = await contactDb.contacts.get(chat.contactId);
-                if (!contact) continue;
-                // 只取 SMS 消息作为预览
-                var msgs = await chatListDb.messages.where('contactId').equals(contact.id).toArray();
-                var smsMsgsOnly = msgs.filter(function(m) { return m.source === 'sms' || !m.source; });
+            for (var i = 0; i < contacts.length; i++) {
+                var contact = contacts[i];
+                // 只取 SMS 消息（source === 'sms'）作为预览，严格排除 WeChat 消息
+                var allMsgs = await chatListDb.messages.where('contactId').equals(contact.id).toArray();
+                var smsMsgsOnly = allMsgs.filter(function(m) { return m.source === 'sms'; });
                 var lastText = '点击发送短信...';
-                if (smsMsgsOnly && smsMsgsOnly.length > 0) {
+                var lastTime = '';
+                if (smsMsgsOnly.length > 0) {
                     var lastMsg = smsMsgsOnly[smsMsgsOnly.length - 1];
+                    lastTime = lastMsg.timeStr || '';
                     if (lastMsg.isRecalled) {
                         lastText = '撤回了一条消息';
                     } else {
@@ -7145,12 +7151,19 @@ document.addEventListener('DOMContentLoaded', function() {
                       (isChecked ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>' : '') +
                       '</div>'
                     : '';
+                // 头像
+                var avatarHtml = contact.roleAvatar
+                    ? '<img src="' + contact.roleAvatar + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy" decoding="async">'
+                    : '<span style="color:#ccc;font-size:12px;font-weight:500;">' + (displayName.charAt(0) || '?') + '</span>';
                 item.innerHTML =
                     checkboxHtml +
+                    '<div style="width:44px;height:44px;border-radius:50%;background:#f0f0f0;overflow:hidden;flex-shrink:0;display:flex;justify-content:center;align-items:center;margin-right:12px;">' +
+                        avatarHtml +
+                    '</div>' +
                     '<div class="sms-list-info">' +
                         '<div class="sms-list-name-row">' +
                             '<span class="sms-list-name">' + displayName + '</span>' +
-                            '<span class="sms-list-time">' + (chat.lastTime || '') + '</span>' +
+                            '<span class="sms-list-time">' + lastTime + '</span>' +
                         '</div>' +
                         '<div class="sms-list-preview">' + lastText + '</div>' +
                     '</div>';
@@ -7175,55 +7188,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 打开新建短信联系人选择
-    window.openSmsNewChatSelect = async function() {
-        var modal = document.getElementById('sms-new-chat-modal');
-        var listEl = document.getElementById('sms-new-chat-list');
-        listEl.innerHTML = '';
-        try {
-            var contacts = await contactDb.contacts.toArray();
-            if (contacts.length === 0) {
-                listEl.innerHTML = '<div style="color:#bbb; font-size:13px; text-align:center; margin-top:20px;">暂无联系人，请先在WeChat中添加</div>';
-            } else {
-                contacts.forEach(function(c) {
-                    var item = document.createElement('div');
-                    item.style.cssText = 'background:#f9f9f9; border-radius:12px; padding:10px 15px; display:flex; align-items:center; gap:12px; cursor:pointer; border:1px solid #eee;';
-                    item.onclick = function() {
-                        closeSmsNewChatSelect();
-                        _ensureSmsChatExists(c.id);
-                    };
-                    var avatarHtml = c.roleAvatar
-                        ? '<img src="' + c.roleAvatar + '" style="width:100%;height:100%;object-fit:cover;">'
-                        : '<span style="color:#ccc;font-size:12px;">无</span>';
-                    item.innerHTML =
-                        '<div style="width:40px;height:40px;border-radius:50%;background:#fff;overflow:hidden;flex-shrink:0;display:flex;justify-content:center;align-items:center;border:1px solid #f0f0f0;">' +
-                            avatarHtml +
-                        '</div>' +
-                        '<div style="font-size:14px;font-weight:500;color:#333;">' + (c.roleName || '未命名') + '</div>';
-                    listEl.appendChild(item);
-                });
-            }
-        } catch(e) { console.error(e); }
-        modal.style.display = 'flex';
-    };
-
+    // openSmsNewChatSelect / closeSmsNewChatSelect 保留为空函数，防止 HTML 中已有引用报错
+    window.openSmsNewChatSelect = function() {};
     window.closeSmsNewChatSelect = function() {
-        document.getElementById('sms-new-chat-modal').style.display = 'none';
+        var modal = document.getElementById('sms-new-chat-modal');
+        if (modal) modal.style.display = 'none';
     };
-
-    async function _ensureSmsChatExists(contactId) {
-        try {
-            var existing = await chatListDb.chats.where('contactId').equals(contactId).first();
-            if (!existing) {
-                await chatListDb.chats.add({
-                    id: Date.now().toString(),
-                    contactId: contactId,
-                    lastTime: getSmsTime()
-                });
-            }
-            enterSmsChat(contactId);
-        } catch(e) { console.error(e); }
-    }
 
     // 进入信息聊天窗口
     async function enterSmsChat(contactId) {

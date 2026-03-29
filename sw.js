@@ -24,7 +24,7 @@ self.addEventListener('push', event => {
         icon: data.icon || 'icon-192.png',
         badge: 'icon-192.png',
         tag: data.tag || 'mini-phone-msg',
-        data: { contactId: data.contactId, url: self.location.origin + self.location.pathname.replace('sw.js', '') },
+        data: { contactId: data.contactId, url: self.location.origin + self.location.pathname.replace(/\/?sw\.js$/, '/') },
         requireInteraction: false,
         silent: false
     };

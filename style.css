@@ -91,7 +91,7 @@
         .top-music-bar { display: flex; justify-content: center; gap: 15px; align-items: center; margin-top: 15px; margin-bottom: 5px; }
         .music-title-pill { background: rgba(255, 255, 255, 0.85); padding: 7px 16px; border-radius: 20px; font-size: 11px; color: #888; box-shadow: 0 2px 15px rgba(0,0,0,0.03); backdrop-filter: blur(15px); letter-spacing: 0.5px; }
 .music-play-btn { width: 30px; height: 30px; border-radius: 50%; background: rgba(225, 225, 225, 0.7); display: flex; justify-content: center; align-items: center; color: #fff; backdrop-filter: blur(15px); padding-left: 1.5px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
-        .profile-card { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; }
+        .profile-card { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; min-height: 90px; border-radius: 28px !important; width: 100%; box-sizing: border-box; }
 /* 新增：胶囊式日期包裹层 */
 .date-pill { background: #fff; padding: 2px 10px; border-radius: 28px; font-size: 11px; color: #999; margin-left: 8px; font-weight: normal; display: inline-flex; align-items: center; justify-content: center; height: 20px; transform: translateY(-1px); }
 /* 新增：天气/星期组合 */
@@ -123,7 +123,7 @@
         .polaroid-img-box img { width: 100%; height: 100%; object-fit: cover; }
         /* 菜单面板样式 */
         #menu-panel {
-            position: fixed; z-index: 1000; background: var(--panel-bg); 
+            position: absolute; z-index: 1000; background: var(--panel-bg);
             border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15);
             display: none; flex-direction: column; width: 100px; padding: 5px;
             border: 1px solid rgba(0,0,0,0.05); backdrop-filter: blur(10px);
@@ -248,32 +248,19 @@
         .icon-theme-grid {
     display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px 8px; width: 100%; padding: 0 5px 30px 5px; flex-shrink: 0;
 }
-/* 改为5列后，最后三个图标（第16、17、18个）排在第二、三、四列居中 */
-.theme-icon-item:nth-child(16) { grid-column: 2; }
-.theme-icon-item:nth-child(17) { grid-column: 3; }
-.theme-icon-item:nth-child(18) { grid-column: 4; }
-.theme-icon-item {
-    display: flex; flex-direction: column; align-items: center; gap: 5px;
-}
-.theme-icon-wrapper {
-    width: 100%; aspect-ratio: 1; border-radius: 14px; background: #fff; 
-    box-shadow: 0 2px 8px rgba(0,0,0,0.03); overflow: hidden; border: 1px solid #f9f9f9;
-}
-.theme-icon-label {
-    font-size: 10px; color: #999; white-space: nowrap;
-}
 /* 只有在没有图片时才显示白色背景 */
-.editable, .icon-img, .dock-icon, .theme-icon-item { background-color: #ffffff; }
+.editable, .icon-img, .dock-icon { background-color: #ffffff; }
 /* 修正主题页图标容器布局 */
-.theme-icon-container { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.theme-icon-item { width: 100%; aspect-ratio: 1; border-radius: 14px; background: #fff; overflow: hidden; border: 1px solid #f0f0f0; }
+.theme-icon-container { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
+/* theme-icon-item: 统一定义，避免多次重复定义互相覆盖 */
+.theme-icon-item {
+    width: 100%; aspect-ratio: 1; border-radius: 14px; background: #fff;
+    overflow: hidden; border: 1px solid #f0f0f0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    cursor: pointer; transition: transform 0.1s;
+}
+.theme-icon-item:active { transform: scale(0.92); }
 .theme-icon-item img { width: 100%; height: 100%; object-fit: cover; }
-        .theme-icon-item {
-            aspect-ratio: 1; border-radius: 14px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-            overflow: hidden; border: 1px solid #f9f9f9; cursor: pointer; transition: transform 0.1s;
-        }
-        .theme-icon-item:active { transform: scale(0.92); }
-        .theme-icon-item img { width: 100%; height: 100%; object-fit: cover; }
         .action-buttons {
             display: flex; gap: 15px; margin-top: 35px; width: 100%; justify-content: center; flex-shrink: 0;
         }
@@ -666,7 +653,7 @@
 }
 /* ====== 消息长按菜单与多选样式 ====== */
 #msg-action-panel {
-    position: fixed; z-index: 1000; background: rgba(255, 255, 255, 0.95);
+    position: absolute; z-index: 1000; background: rgba(255, 255, 255, 0.95);
     border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15);
     display: none; width: 170px; padding: 6px;
     border: 1px solid rgba(0,0,0,0.05); backdrop-filter: blur(10px);
@@ -2859,6 +2846,638 @@ img {
     30% { transform: translateY(-4px); opacity: 1; }
 }
 
+/* ====== 查手机：虚拟手机外壳样式 ====== */
+.cp-phone-shell {
+    width: 90vw;
+    max-width: 340px;
+    height: 90vh;
+    max-height: 720px;
+    background: linear-gradient(160deg, #2a2a2a 0%, #1a1a1a 40%, #111 100%);
+    border-radius: 52px;
+    position: relative;
+    box-shadow:
+        0 0 0 1.5px #3a3a3a,
+        0 0 0 3px #222,
+        0 40px 80px rgba(0,0,0,0.8),
+        inset 0 0 0 1px rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    flex-shrink: 0;
+}
+.cp-side-btn {
+    position: absolute;
+    width: 3px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #333 0%, #444 50%, #333 100%);
+    box-shadow: -1px 0 2px rgba(0,0,0,0.5);
+}
+.cp-side-btn-left { left: -3px; }
+.cp-side-btn-right { right: -3px; }
+
+.cp-phone-screen {
+    width: 100%;
+    height: 100%;
+    background: #000;
+    border-radius: 42px;
+    overflow: hidden;
+    position: relative;
+}
+.cp-dynamic-island {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 110px;
+    height: 32px;
+    background: #000;
+    border-radius: 20px;
+    z-index: 100;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.04);
+}
+.cp-home-indicator {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 4px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 2px;
+}
+
+/* 锁屏层 */
+.cp-lock-screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+}
+.cp-lock-wallpaper {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+    background-size: cover;
+    background-position: center;
+}
+.cp-lock-blur-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.25);
+    backdrop-filter: blur(0px);
+}
+.cp-lock-content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 70px;
+    width: 100%;
+    flex: 1;
+}
+.cp-lock-time {
+    font-size: 72px;
+    font-weight: 200;
+    color: #fff;
+    letter-spacing: -2px;
+    line-height: 1;
+    font-family: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+    text-shadow: 0 2px 20px rgba(0,0,0,0.3);
+}
+.cp-lock-date {
+    font-size: 16px;
+    color: rgba(255,255,255,0.85);
+    margin-top: 8px;
+    font-weight: 400;
+    letter-spacing: 0.3px;
+}
+.cp-lock-notif {
+    margin-top: 30px;
+    width: 85%;
+    background: rgba(255,255,255,0.18);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 16px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid rgba(255,255,255,0.12);
+}
+.cp-lock-notif-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: rgba(7,193,96,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.cp-lock-notif-text {
+    font-size: 13px;
+    color: rgba(255,255,255,0.9);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cp-swipe-hint {
+    position: absolute;
+    bottom: 30px;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    z-index: 2;
+    cursor: pointer;
+}
+.cp-swipe-bar {
+    width: 36px;
+    height: 4px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 2px;
+    animation: cpSwipeAnim 2s infinite ease-in-out;
+}
+@keyframes cpSwipeAnim {
+    0%, 100% { transform: translateY(0); opacity: 0.5; }
+    50% { transform: translateY(-6px); opacity: 1; }
+}
+.cp-swipe-text {
+    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 0.5px;
+}
+
+/* 密码输入层 */
+.cp-passcode-screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.cp-passcode-wallpaper {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+    background-size: cover;
+    background-position: center;
+}
+.cp-passcode-blur {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+}
+.cp-passcode-content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: 55px 20px 20px;
+    gap: 10px;
+    overflow-y: auto;
+    flex: 1;
+}
+.cp-passcode-content::-webkit-scrollbar { display: none; }
+.cp-passcode-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.1);
+    flex-shrink: 0;
+}
+.cp-passcode-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.cp-passcode-name {
+    font-size: 16px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.9);
+    letter-spacing: 0.3px;
+}
+.cp-passcode-hint {
+    font-size: 13px;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 4px;
+}
+.cp-passcode-dots {
+    display: flex;
+    gap: 14px;
+    margin: 4px 0;
+}
+.cp-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.6);
+    background: transparent;
+    transition: background 0.15s, border-color 0.15s;
+}
+.cp-dot.filled {
+    background: rgba(255,255,255,0.9);
+    border-color: rgba(255,255,255,0.9);
+}
+.cp-dot.error {
+    background: #ff4444;
+    border-color: #ff4444;
+}
+.cp-passcode-error {
+    font-size: 12px;
+    color: #ff6b6b;
+    background: rgba(255,100,100,0.15);
+    padding: 4px 12px;
+    border-radius: 10px;
+}
+
+/* 询问角色按钮 */
+.cp-ask-role-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.7);
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 20px;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    backdrop-filter: blur(10px);
+    margin-top: 2px;
+}
+.cp-ask-role-btn:active {
+    background: rgba(255,255,255,0.2);
+    transform: scale(0.97);
+}
+
+/* AI回复气泡 */
+.cp-role-reply-bubble {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+    max-width: 280px;
+    animation: cpBubbleIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes cpBubbleIn {
+    from { opacity: 0; transform: scale(0.85) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.cp-role-reply-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.1);
+}
+.cp-role-reply-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.cp-role-reply-text {
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 4px 14px 14px 14px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.9);
+    line-height: 1.5;
+    max-width: 220px;
+    word-break: break-word;
+}
+
+/* 数字键盘 */
+.cp-numpad {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    margin-top: 4px;
+}
+.cp-numpad-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    justify-items: center;
+}
+.cp-numkey {
+    width: 64px;
+    height: 64px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    border: 1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    user-select: none;
+}
+.cp-numkey:active {
+    background: rgba(255,255,255,0.35);
+    transform: scale(0.92);
+}
+.cp-numkey-empty {
+    background: transparent !important;
+    border-color: transparent !important;
+    pointer-events: none;
+}
+.cp-numkey-del {
+    background: rgba(255,255,255,0.08) !important;
+}
+.cp-numkey-main {
+    font-size: 24px;
+    font-weight: 300;
+    color: rgba(255,255,255,0.92);
+    line-height: 1;
+    font-family: -apple-system, "Helvetica Neue", sans-serif;
+}
+.cp-numkey-sub {
+    font-size: 9px;
+    color: rgba(255,255,255,0.45);
+    letter-spacing: 1px;
+    margin-top: 2px;
+    font-family: -apple-system, "Helvetica Neue", sans-serif;
+}
+.cp-passcode-cancel {
+    font-size: 14px;
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    padding: 6px 20px;
+    margin-top: 4px;
+}
+.cp-passcode-cancel:active { opacity: 0.6; }
+
+/* 解锁成功页面 */
+.cp-unlocked-screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+}
+.cp-unlocked-wallpaper {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+    background-size: cover;
+    background-position: center;
+}
+.cp-unlocked-content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+.cp-status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+}
+.cp-app-icon-mock {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+.cp-app-icon-bg {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.cp-app-icon-mock span {
+    font-size: 10px;
+    color: rgba(255,255,255,0.85);
+    text-align: center;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+/* ====== 查手机：解锁后桌面布局样式 ====== */
+.cp-desktop-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 12px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.cp-desktop-body::-webkit-scrollbar { display: none; }
+
+/* 顶部信息卡片 */
+.cp-profile-card {
+    width: 100%;
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    flex-shrink: 0;
+}
+.cp-profile-bg {
+    width: 100%;
+    height: 80px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-size: cover;
+    background-position: center;
+}
+/* 分割线处的圆形头像容器 */
+.cp-profile-avatar-wrap {
+    position: absolute;
+    top: 50px; /* 背景图高度 - 头像半径 */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+}
+.cp-profile-avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid rgba(255,255,255,0.9);
+    background: rgba(255,255,255,0.2);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    cursor: pointer;
+}
+.cp-profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+/* 下半部分磨砂玻璃 */
+.cp-profile-glass {
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 36px 16px 16px; /* 顶部留出头像空间 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+}
+.cp-profile-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.95);
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    text-align: center;
+}
+.cp-profile-name:active { opacity: 0.7; }
+.cp-profile-sig {
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+    text-align: center;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    line-height: 1.4;
+}
+.cp-profile-sig:active { opacity: 0.7; }
+
+/* 应用图标行 */
+.cp-app-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+.cp-desktop-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+}
+.cp-desktop-icon:active { opacity: 0.7; transform: scale(0.95); }
+.cp-desktop-icon-bg {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+.cp-desktop-icon span {
+    font-size: 10px;
+    color: rgba(255,255,255,0.9);
+    text-align: center;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    letter-spacing: 0.2px;
+}
+
+/* 底部 Dock 栏 */
+.cp-desktop-dock {
+    position: absolute;
+    bottom: 22px;
+    left: 12px;
+    right: 12px;
+    height: 72px;
+    background: rgba(255,255,255,0.18);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border-radius: 22px;
+    border: 1px solid rgba(255,255,255,0.2);
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    flex-shrink: 0;
+}
+.cp-dock-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+.cp-dock-icon:active { opacity: 0.7; transform: scale(0.92); }
+.cp-dock-icon-bg {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.cp-dock-icon span {
+    font-size: 10px;
+    color: rgba(255,255,255,0.85);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+/* 查手机联系人选择弹窗 - 联系人格子 */
+.cp-contact-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 8px 4px;
+    border-radius: 14px;
+    transition: background 0.2s;
+}
+.cp-contact-item:active { background: rgba(0,0,0,0.05); }
+.cp-contact-avatar {
+    width: 62px;
+    height: 62px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #f0f0f0;
+    border: 2px solid #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.cp-contact-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.cp-contact-name {
+    font-size: 11px;
+    color: #444;
+    text-align: center;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 70px;
+    letter-spacing: 0.2px;
+}
+
 /* ====== 修罗场模式：WeChat异地登录面板 & 对峙对话面板 ====== */
 @keyframes shura-pulse {
     0%, 100% { box-shadow: 0 0 6px rgba(231,76,60,0.5); opacity: 1; }
@@ -2934,3 +3553,188 @@ img {
     padding: 4px 0;
     font-style: italic;
 }
+
+/* ====== 查手机：锁屏右下角壁纸按钮 ====== */
+.cp-lock-wallpaper-btn {
+    position: absolute;
+    bottom: 80px;
+    right: 20px;
+    z-index: 10;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+}
+.cp-lock-wallpaper-btn:active {
+    background: rgba(255,255,255,0.3);
+    transform: scale(0.92);
+}
+
+/* ====== 查手机：锁屏左下角星星按钮 ====== */
+.cp-lock-star-btn {
+    position: absolute;
+    bottom: 80px;
+    left: 20px;
+    z-index: 10;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+}
+.cp-lock-star-btn:active {
+    background: rgba(255,255,255,0.3);
+    transform: scale(0.92);
+}
+
+/* ====== 查手机：锁屏自定义弹出面板 - 阻止事件穿透到锁屏层 ====== */
+.cp-custom-panel {
+    pointer-events: auto;
+}
+/* 覆盖：确保面板内所有点击不冒泡到锁屏层（防止触发密码页） */
+.cp-custom-panel * {
+    pointer-events: auto;
+}
+/* ====== 查手机：锁屏自定义弹出面板 ====== */
+.cp-custom-panel {
+    position: absolute;
+    bottom: 130px;
+    left: 12px;
+    right: 12px;
+    z-index: 20;
+    background: rgba(20, 20, 35, 0.82);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 22px;
+    padding: 16px 14px 14px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    transform: translateY(10px) scale(0.96);
+    opacity: 0;
+    transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1), opacity 0.22s ease;
+}
+.cp-custom-panel.show {
+    display: flex;
+    transform: translateY(0) scale(1);
+    opacity: 1;
+}
+.cp-custom-panel-title {
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 1px;
+    font-weight: 500;
+    padding: 0 4px 2px;
+    text-transform: uppercase;
+}
+.cp-custom-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.cp-custom-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    flex: 1;
+    min-width: 52px;
+    max-width: 70px;
+}
+.cp-custom-item:active .cp-custom-icon-wrap {
+    transform: scale(0.88);
+    background: rgba(255,255,255,0.22);
+}
+.cp-custom-icon-wrap {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s, background 0.15s;
+}
+.cp-custom-item span {
+    font-size: 10px;
+    color: rgba(255,255,255,0.75);
+    text-align: center;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60px;
+}
+
+/* ====== 查手机：信息卡片正方形！ ====== */
+.cp-profile-card {
+    border-radius: 22px !important;
+    /* 强制正方形：宽高相等 */
+    aspect-ratio: 1 / 1 !important;
+    overflow: hidden !important;
+}
+.cp-profile-bg {
+    height: 50% !important; /* 上半部分占一半高度 */
+}
+.cp-profile-avatar-wrap {
+    top: calc(50% - 27px) !important; /* 背景图底部 - 头像半径 */
+}
+/* 分割线两端圆角 */
+.cp-profile-glass::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 16px;
+    right: 16px;
+    height: 1px;
+    background: rgba(255,255,255,0.25);
+    border-radius: 1px;
+}
+.cp-profile-glass {
+    position: relative;
+    border-top: none !important; /* 移除原来的直线，用伪元素替代 */
+    padding-top: 40px !important; /* 增加顶部内边距留出头像空间 */
+}
+
+/* 个性签名可点击编辑提示 */
+.cp-profile-sig {
+    cursor: pointer !important;
+    padding: 4px 12px;
+    border-radius: 20px;
+    transition: background 0.2s;
+}
+.cp-profile-sig:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+/* ====== 查手机：Dock 栏不显示文字标签 ====== */
+.cp-dock-icon span {
+    display: none !important;
+}
+.cp-desktop-dock {
+    height: 62px !important; /* 没有文字后高度可以减小 */
+    bottom: 18px !important;
+}
+
+/* ====== 查手机：桌面壁纸使用渐变而非头像 ====== */
+/* 解锁后壁纸保持深色渐变，不覆盖为头像 */
+/* 通过 JS 中不设置 cp-unlocked-wallpaper 的 background 来实现 */

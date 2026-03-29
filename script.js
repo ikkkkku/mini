@@ -161,7 +161,12 @@ if(rw) rw.textContent = week;
             }
         });
     });
-    document.addEventListener('click', () => menu.style.display = 'none');
+    document.addEventListener('click', (e) => {
+        // 只有点击非 editable 元素时才关闭菜单（防止点击 editable 后菜单立即被关闭）
+        if (!e.target.closest('.editable') && !e.target.closest('#menu-panel')) {
+            menu.style.display = 'none';
+        }
+    });
     function changeImage(type) {
         if(type === 'url') {
             const url = prompt('请输入图片链接:');
@@ -348,9 +353,14 @@ window.addEventListener('DOMContentLoaded', async () => {
             for (let mutation of mutations) {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
                     setWallpaper(previewImg.src);
-                    try {
-                        await imgDb.images.put({ id: 'wallpaper-preview', src: previewImg.src });
-                    } catch (e) { console.error(e); }
+                    // 修复：不保存占位图URL（via.placeholder.com）到IndexedDB
+                    // 否则 restoreDefaultWallpaper() 重置时会把占位图URL写入数据库，
+                    // 下次加载时会尝试将占位图设为壁纸，导致壁纸显示异常
+                    if (previewImg.src && !previewImg.src.includes('via.placeholder.com')) {
+                        try {
+                            await imgDb.images.put({ id: 'wallpaper-preview', src: previewImg.src });
+                        } catch (e) { console.error(e); }
+                    }
                 }
             }
         }).observe(previewImg, { attributes: true });
@@ -1775,11 +1785,7 @@ document.getElementById('contact-edit-id').value = '';
                 return;
             }
             container.innerHTML = '';
-            // 置顶的排前面，其余按时间倒序
-            chats.sort((a, b) => {
-                if (!!b.pinned !== !!a.pinned) return b.pinned ? 1 : -1;
-                return 0;
-            });
+            // 置顶的排前面，其余保持原始顺序（倒序）
             chats.reverse();
             chats.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
 
@@ -2104,7 +2110,7 @@ document.getElementById('contact-edit-id').value = '';
         if (!content) return '';
         try {
             const parsed = JSON.parse(content);
-            if (parsed.type === 'voice_message') return '[语音]';
+            if (parsed.type === 'voice_message') return '[语音] ' + (parsed.content || '');
             if (parsed.type === 'camera') return '[相片] ' + (parsed.content || '');
             if (parsed.type === 'image') return '[图片]';
             if (parsed.type === 'emoticon') return `[表情] ${parsed.desc || ''}`;
@@ -2747,7 +2753,7 @@ document.getElementById('contact-edit-id').value = '';
                 container.scrollTop = container.scrollHeight;
             });
 
-            // 8. \u8868\u60c5\u5305\u53d1\u9001\u540e\u4e0d\u89e6\u53d1\u81ea\u52a8\u56de\u590d
+            // 8. 表情包发送后不触发自动回复
 
 
         } catch (err) {
@@ -3923,11 +3929,12 @@ ${langInstruction}
             }
         } finally {
             isReplying = false;
+            // 修复：无论当前 activeChatContact 是否还是 lockedContact，都必须恢复 UI 锁定状态
+            // 否则用户在角色回复期间切换了聊天，原聊天的发送按钮会永久锁死
+            if (sendBtn) { sendBtn.style.pointerEvents = 'auto'; sendBtn.style.opacity = '1'; }
+            input.disabled = false;
             if (activeChatContact && activeChatContact.id === lockedContact.id) {
-                input.disabled = false;
-                sendBtn.style.pointerEvents = 'auto';
-                sendBtn.style.opacity = '1';
-                titleEl.textContent = originalTitle;
+                if (titleEl) titleEl.textContent = originalTitle;
             }
             // 角色回复完成后，AI自主判断是否拉黑用户（5%概率触发）
             // 在 finally 中异步执行，不阻塞主流程
@@ -4315,13 +4322,18 @@ ${langInstruction}
             panel.style.display = 'none';
         }
     });
-    // 修复：滑动聊天容器时隐藏快捷面板
-    document.getElementById('chat-msg-container').addEventListener('scroll', () => {
-        const panel = document.getElementById('msg-action-panel');
-        if (panel && panel.style.display === 'block') {
-            panel.style.display = 'none';
+    // 修复：滑动聊天容器时隐藏快捷面板（包裹在 DOMContentLoaded 内，防止元素不存在时报错）
+    document.addEventListener('DOMContentLoaded', () => {
+        const chatMsgContainerForScroll = document.getElementById('chat-msg-container');
+        if (chatMsgContainerForScroll) {
+            chatMsgContainerForScroll.addEventListener('scroll', () => {
+                const panel = document.getElementById('msg-action-panel');
+                if (panel && panel.style.display === 'block') {
+                    panel.style.display = 'none';
+                }
+            }, { passive: true });
         }
-    }, { passive: true });
+    });
     function showMsgActionPanel(bubbleEl, msgId, sender) {
         if (!bubbleEl) return;
         currentLongPressMsgId = msgId;
@@ -4721,6 +4733,28 @@ ${langInstruction}
                 performSendMessage();
             }
         });
+
+        // iOS键盘修复：点击聊天区域时确保输入框可聚焦（iOS需要从用户手势直接触发focus）
+        const chatMsgContainer = document.getElementById('chat-msg-container');
+        const chatInputMain = document.getElementById('chat-input-main');
+        if (chatMsgContainer && chatInputMain) {
+            chatMsgContainer.addEventListener('touchend', function(e) {
+                // 点击消息区域时不弹出键盘（只有点击输入框才弹）
+                e.stopPropagation();
+            }, { passive: true });
+        }
+
+        // iOS键盘修复：确保输入框在任何情况下都不会被意外锁定
+        if (chatInputMain) {
+            // 每次touchstart时确保输入框未被disabled（iOS下disabled会导致键盘弹不出）
+            chatInputMain.addEventListener('touchstart', function() {
+                // 如果角色没有拉黑用户，强制解除disabled状态
+                if (activeChatContact && !isBlockedByRole(activeChatContact)) {
+                    this.disabled = false;
+                    this.removeAttribute('readonly');
+                }
+            }, { passive: true });
+        }
     });
     // ====== 数据管理功能逻辑 ======
     // 图像压缩辅助函数 (使用 Canvas 降低图片分辨率和质量)
@@ -8579,97 +8613,38 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch(e) {
             console.error('[修罗场] 对峙生成出错', e);
         } finally {
+            // 修复：无论成功还是失败，必须在 finally 中重置标志位，
+            // 否则一旦发生异常，_shuraConfrontationRunning 永远为 true，
+            // 后续所有修罗场对峙生成请求都会被静默拦截，功能永久失效。
             _shuraConfrontationRunning = false;
         }
     }
 
     /**
-     * 渲染对峙对话面板
+     * 渲染对峙对话：角色发现用户手机内容后，直接在聊天窗口逐条发送对峙消息给用户
+     * 不再使用单独的对峙面板，而是将对话内容作为角色消息直接发到聊天记录中
      */
-    function _renderShuraConfrontation(triggerContact, otherChatsInfo, dialogues, myName) {
-        var overlay = document.getElementById('shura-confrontation-overlay');
-        var content = document.getElementById('shura-confrontation-content');
-        var subtitle = document.getElementById('shura-confrontation-subtitle');
-        if (!overlay || !content) return;
+    async function _renderShuraConfrontation(triggerContact, otherChatsInfo, dialogues, myName) {
+        if (!dialogues || dialogues.length === 0) return;
 
-        // 更新副标题
-        if (subtitle) {
-            var otherNames = otherChatsInfo.map(function(i) { return i.contact.roleName || '角色'; }).join('、');
-            subtitle.textContent = (triggerContact.roleName || '角色') + ' 查看了你与 ' + otherNames + ' 的对话';
-        }
-
-        // 清空并填充内容
-        content.innerHTML = '';
-
-        // 顶部说明
-        var tipEl = document.createElement('div');
-        tipEl.className = 'shura-system-tip';
-        tipEl.textContent = '⚠️ ' + (triggerContact.roleName || '对方') + ' 登录了你的WeChat，查看了你与其他人的聊天记录';
-        content.appendChild(tipEl);
-
-        // 分隔线
-        var divider = document.createElement('div');
-        divider.style.cssText = 'height:1px;background:#f0f0f0;margin:4px 0 8px;';
-        content.appendChild(divider);
-
-        // 逐条渲染对话
-        var triggerAvatar = triggerContact.roleAvatar || '';
-        var myAvatar = triggerContact.userAvatar || '';
-        var roleName = triggerContact.roleName || '对方';
-
-        dialogues.forEach(function(d) {
-            if (!d || !d.text) return;
+        // 过滤出角色的发言（跳过用户发言）
+        var roleLines = dialogues.filter(function(d) {
+            if (!d || !d.text) return false;
             var isMe = (d.speaker === myName || d.speaker === '用户' || d.speaker === 'user');
-            // 只渲染角色的发言，跳过用户发言（用户自己回复）
-            if (isMe) return;
-            var speakerName = d.speaker || roleName;
-            var emotion = d.emotion || '';
-
-            var rowEl = document.createElement('div');
-            rowEl.className = 'shura-bubble-left';
-
-            // 头像
-            var avatarEl = document.createElement('div');
-            avatarEl.className = 'shura-avatar';
-            var avatarSrc = triggerAvatar;
-            if (avatarSrc) {
-                avatarEl.innerHTML = '<img src="' + avatarSrc + '" alt="">';
-            } else {
-                avatarEl.style.background = '#f0f0f0';
-                avatarEl.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:12px;color:#aaa;">' + (speakerName.charAt(0) || '?') + '</div>';
-            }
-
-            // 消息包裹
-            var wrapEl = document.createElement('div');
-            wrapEl.className = 'shura-msg-wrap';
-
-            // 名字+情绪
-            var nameEl = document.createElement('div');
-            nameEl.className = 'shura-name';
-            nameEl.textContent = speakerName + (emotion ? ' · ' + emotion : '');
-
-            // 文字气泡
-            var textEl = document.createElement('div');
-            textEl.className = 'shura-text';
-            textEl.textContent = d.text;
-
-            wrapEl.appendChild(nameEl);
-            wrapEl.appendChild(textEl);
-            rowEl.appendChild(avatarEl);
-            rowEl.appendChild(wrapEl);
-            content.appendChild(rowEl);
+            return !isMe;
         });
 
-        // 底部提示
-        var bottomTip = document.createElement('div');
-        bottomTip.className = 'shura-system-tip';
-        bottomTip.textContent = '— 对峙结束 —';
-        content.appendChild(bottomTip);
+        if (roleLines.length === 0) return;
 
-        // 显示面板（延迟500ms，让WeChat登录面板先显示）
-        setTimeout(function() {
-            overlay.style.display = 'flex';
-        }, 500);
+        // 逐条将角色发言作为真实聊天消息发送（带1.8s间隔）
+        for (var i = 0; i < roleLines.length; i++) {
+            var d = roleLines[i];
+            var msgText = d.text;
+            // 如有情绪标签，附加到消息末尾（括号内，轻描淡写）
+            // 不附加情绪标签，保持消息纯净
+            await new Promise(function(res) { setTimeout(res, i === 0 ? 800 : 1800); });
+            await appendRoleMessage(msgText, '', triggerContact);
+        }
     }
 
     /**
@@ -9198,5 +9173,709 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         _notifBannerObserver.observe(banner, { attributes: true });
     });
+
+})();
+
+// ====== 查手机功能逻辑 ======
+(function() {
+    'use strict';
+
+    // 当前查看的联系人
+    var _cpContact = null;
+    // 密码输入状态
+    var _cpPasscodeInput = '';
+    // 是否正在询问角色
+    var _cpAsking = false;
+    // 锁屏时间更新定时器
+    var _cpTimeTimer = null;
+
+    // ---- 绑定"查手机"图标点击事件 ----
+    document.addEventListener('DOMContentLoaded', function() {
+        // 找到第二页的"查手机"图标
+        var allIcons = document.querySelectorAll('.app-icon');
+        allIcons.forEach(function(icon) {
+            var span = icon.querySelector('span');
+            if (span && span.textContent.trim() === '查手机') {
+                icon.onclick = function(e) {
+                    e.stopPropagation();
+                    openCheckphoneContactModal();
+                };
+            }
+        });
+    });
+
+    // ---- 打开联系人选择弹窗 ----
+    window.openCheckphoneContactModal = async function() {
+        var modal = document.getElementById('checkphone-contact-modal');
+        var sheet = document.getElementById('checkphone-contact-sheet');
+        var grid = document.getElementById('checkphone-contact-grid');
+        if (!modal || !sheet || !grid) return;
+
+        // 填充联系人
+        grid.innerHTML = '';
+        try {
+            var contacts = await contactDb.contacts.toArray();
+            if (contacts.length === 0) {
+                grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#bbb;font-size:13px;padding:30px 0;">暂无联系人，请先在WeChat中添加</div>';
+            } else {
+                contacts.forEach(function(c) {
+                    var item = document.createElement('div');
+                    item.className = 'cp-contact-item';
+                    // 获取显示名（备注优先）
+                    var displayName = c.roleName || '未命名';
+                    // 头像
+                    var avatarHtml = c.roleAvatar
+                        ? '<img src="' + c.roleAvatar + '" alt="">'
+                        : '<span style="font-size:22px;color:#ccc;">👤</span>';
+                    item.innerHTML = '<div class="cp-contact-avatar">' + avatarHtml + '</div>' +
+                        '<div class="cp-contact-name">' + displayName + '</div>';
+                    item.onclick = function() {
+                        closeCheckphoneContactModal();
+                        setTimeout(function() { openCheckphoneApp(c); }, 350);
+                    };
+                    grid.appendChild(item);
+                });
+            }
+        } catch(e) {
+            console.error('加载联系人失败', e);
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#bbb;font-size:13px;padding:30px 0;">加载失败</div>';
+        }
+
+        modal.style.display = 'flex';
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                sheet.style.transform = 'translateY(0)';
+            });
+        });
+    };
+
+    // ---- 关闭联系人选择弹窗 ----
+    window.closeCheckphoneContactModal = function() {
+        var sheet = document.getElementById('checkphone-contact-sheet');
+        var modal = document.getElementById('checkphone-contact-modal');
+        if (!sheet || !modal) return;
+        sheet.style.transform = 'translateY(100%)';
+        setTimeout(function() { modal.style.display = 'none'; }, 350);
+    };
+
+    // ---- 打开手机检查页面 ----
+    window.openCheckphoneApp = function(contact) {
+        _cpContact = contact;
+        _cpPasscodeInput = '';
+        _cpAsking = false;
+
+        var app = document.getElementById('checkphone-app');
+        if (!app) return;
+        app.style.display = 'flex';
+
+        // 设置角色名
+        var roleNameEl = document.getElementById('checkphone-role-name');
+        if (roleNameEl) roleNameEl.textContent = (contact.roleName || '对方') + ' 的手机';
+
+        // 重置到锁屏状态
+        _cpShowLockScreen();
+
+        // 设置壁纸（锁屏和密码页使用头像，解锁后保持深色渐变）
+        var avatarWallpaperBg = contact.roleAvatar
+            ? 'url(' + contact.roleAvatar + ') center/cover no-repeat'
+            : 'linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%)';
+        // 锁屏和密码页：先恢复上次保存的自定义壁纸，否则用头像
+        var savedWallpaperKey = 'cp_wallpaper_' + contact.id;
+        localforage.getItem(savedWallpaperKey).then(function(savedWp) {
+            var wpBg = savedWp ? ('url(' + savedWp + ') center/cover no-repeat') : avatarWallpaperBg;
+            ['cp-lock-wallpaper', 'cp-passcode-wallpaper'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.style.background = wpBg;
+            });
+        }).catch(function() {
+            ['cp-lock-wallpaper', 'cp-passcode-wallpaper'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.style.background = avatarWallpaperBg;
+            });
+        });
+        // 解锁后壁纸：保持深色渐变（不使用头像，避免头像铺满整个屏幕背景）
+        // cp-unlocked-wallpaper 的 CSS 已定义为深色渐变，此处不做覆盖
+
+        // 设置密码输入层的头像
+        var passcodeAvatarImg = document.getElementById('cp-passcode-avatar-img');
+        if (passcodeAvatarImg) passcodeAvatarImg.src = contact.roleAvatar || '';
+        var passcodeNameEl = document.getElementById('cp-passcode-name');
+        if (passcodeNameEl) passcodeNameEl.textContent = contact.roleName || '对方';
+
+        // 设置询问按钮的角色名
+        var askRoleNameEl = document.getElementById('cp-ask-role-name');
+        if (askRoleNameEl) askRoleNameEl.textContent = contact.roleName || '对方';
+
+        // 设置AI回复头像
+        var replyAvatarImg = document.getElementById('cp-role-reply-avatar-img');
+        if (replyAvatarImg) replyAvatarImg.src = contact.roleAvatar || '';
+
+        // 更新锁屏时间
+        _cpUpdateLockTime();
+        _cpTimeTimer = setInterval(_cpUpdateLockTime, 1000);
+
+        // 设置锁屏通知文字
+        var notifText = document.getElementById('cp-lock-notif-text');
+        if (notifText) notifText.textContent = (contact.roleName || '对方') + ' 发来了消息';
+
+        // 绑定上滑手势
+        _cpBindSwipeGesture();
+    };
+
+    // ---- 关闭手机检查页面 ----
+    window.closeCheckphoneApp = function() {
+        var app = document.getElementById('checkphone-app');
+        if (app) app.style.display = 'none';
+        if (_cpTimeTimer) { clearInterval(_cpTimeTimer); _cpTimeTimer = null; }
+        _cpContact = null;
+        _cpPasscodeInput = '';
+        _cpAsking = false;
+        // 重置UI
+        _cpHideAllScreens();
+        var lockScreen = document.getElementById('cp-lock-screen');
+        if (lockScreen) lockScreen.style.display = 'flex';
+    };
+
+    // ---- 显示锁屏 ----
+    function _cpShowLockScreen() {
+        _cpHideAllScreens();
+        var lockScreen = document.getElementById('cp-lock-screen');
+        if (lockScreen) lockScreen.style.display = 'flex';
+    }
+
+    // ---- 显示密码输入层 ----
+    function _cpShowPasscodeScreen() {
+        _cpHideAllScreens();
+        _cpPasscodeInput = '';
+        _cpUpdateDots();
+        var screen = document.getElementById('cp-passcode-screen');
+        if (screen) screen.style.display = 'flex';
+        // 隐藏错误提示
+        var errEl = document.getElementById('cp-passcode-error');
+        if (errEl) errEl.style.display = 'none';
+        // 隐藏AI回复气泡
+        var bubble = document.getElementById('cp-role-reply-bubble');
+        if (bubble) bubble.style.display = 'none';
+        // 重置提示文字
+        var hintEl = document.getElementById('cp-passcode-hint');
+        if (hintEl) hintEl.textContent = '输入密码';
+    }
+
+    // ---- 显示解锁成功页面 ----
+    function _cpShowUnlockedScreen() {
+        _cpHideAllScreens();
+        var screen = document.getElementById('cp-unlocked-screen');
+        if (screen) screen.style.display = 'flex';
+        // 更新状态栏时间
+        _cpUpdateStatusTime();
+        // 填充信息卡片
+        if (_cpContact) {
+            // 头像
+            var profileAvatarImg = document.getElementById('cp-profile-avatar-img');
+            if (profileAvatarImg) profileAvatarImg.src = _cpContact.roleAvatar || '';
+            // 名字（角色名）
+            var profileNameEl = document.getElementById('cp-profile-name');
+            if (profileNameEl) profileNameEl.textContent = _cpContact.roleName || '角色';
+            // 个性签名：从 localforage 读取，初始显示"暂无个性签名"
+            var profileSigEl = document.getElementById('cp-profile-sig');
+            if (profileSigEl) {
+                var sigKey = 'cp_sig_' + _cpContact.id;
+                localforage.getItem(sigKey).then(function(savedSig) {
+                    profileSigEl.textContent = savedSig || '暂无个性签名';
+                }).catch(function() {
+                    profileSigEl.textContent = '暂无个性签名';
+                });
+                // 绑定点击可编辑
+                profileSigEl.onclick = function() {
+                    var current = profileSigEl.textContent;
+                    var newSig = prompt('输入个性签名：', current === '暂无个性签名' ? '' : current);
+                    if (newSig !== null) {
+                        var text = newSig.trim() || '暂无个性签名';
+                        profileSigEl.textContent = text;
+                        localforage.setItem(sigKey, text).catch(function(){});
+                    }
+                };
+            }
+            // 背景图（使用头像作为模糊背景，仅用于顶部信息卡片背景，不影响全屏壁纸）
+            var profileBg = document.getElementById('cp-profile-bg');
+            if (profileBg && _cpContact.roleAvatar) {
+                profileBg.style.background = 'url(' + _cpContact.roleAvatar + ') center/cover no-repeat';
+            }
+            // 解锁后壁纸：保持深色渐变，不使用头像（避免头像铺满整个屏幕背景）
+            // cp-unlocked-wallpaper 的 CSS 已定义为深色渐变，此处不做覆盖
+        }
+    }
+
+    // ---- 隐藏所有屏幕层 ----
+    function _cpHideAllScreens() {
+        ['cp-lock-screen', 'cp-passcode-screen', 'cp-unlocked-screen'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+    }
+
+    // ---- 更新锁屏时间 ----
+    function _cpUpdateLockTime() {
+        var now = new Date();
+        var hh = String(now.getHours()).padStart(2, '0');
+        var mm = String(now.getMinutes()).padStart(2, '0');
+        var timeEl = document.getElementById('cp-lock-time');
+        if (timeEl) timeEl.textContent = hh + ':' + mm;
+        var dateEl = document.getElementById('cp-lock-date');
+        if (dateEl) {
+            var months = now.getMonth() + 1;
+            var days = now.getDate();
+            var weeks = ['周日','周一','周二','周三','周四','周五','周六'][now.getDay()];
+            dateEl.textContent = months + '月' + days + '日 ' + weeks;
+        }
+    }
+
+    // ---- 更新状态栏时间 ----
+    function _cpUpdateStatusTime() {
+        var now = new Date();
+        var hh = String(now.getHours()).padStart(2, '0');
+        var mm = String(now.getMinutes()).padStart(2, '0');
+        var el = document.getElementById('cp-status-time');
+        if (el) el.textContent = hh + ':' + mm;
+    }
+
+    // ---- 绑定上滑手势（锁屏→密码输入）----
+    function _cpBindSwipeGesture() {
+        var lockScreen = document.getElementById('cp-lock-screen');
+        if (!lockScreen || lockScreen._cpBound) return;
+        lockScreen._cpBound = true;
+
+        var startY = 0;
+        var startX = 0;
+
+        lockScreen.addEventListener('touchstart', function(e) {
+            startY = e.touches[0].clientY;
+            startX = e.touches[0].clientX;
+        }, { passive: true });
+
+        lockScreen.addEventListener('touchend', function(e) {
+            var endY = e.changedTouches[0].clientY;
+            var endX = e.changedTouches[0].clientX;
+            var dy = startY - endY;
+            var dx = Math.abs(startX - endX);
+            // 上滑超过40px且横向偏移小于纵向偏移
+            if (dy > 40 && dx < dy) {
+                _cpShowPasscodeScreen();
+            }
+        }, { passive: true });
+
+        // 电脑端：鼠标上滑
+        lockScreen.addEventListener('mousedown', function(e) {
+            startY = e.clientY;
+        });
+        lockScreen.addEventListener('mouseup', function(e) {
+            var dy = startY - e.clientY;
+            if (dy > 40) {
+                _cpShowPasscodeScreen();
+            }
+        });
+
+        // 点击上滑提示区域也可进入
+        var swipeHint = document.getElementById('cp-swipe-hint');
+        if (swipeHint) {
+            swipeHint.onclick = function() { _cpShowPasscodeScreen(); };
+        }
+    }
+
+    // ---- 更新密码圆点显示 ----
+    function _cpUpdateDots() {
+        for (var i = 0; i < 6; i++) {
+            var dot = document.getElementById('cp-dot-' + i);
+            if (!dot) continue;
+            dot.className = 'cp-dot' + (i < _cpPasscodeInput.length ? ' filled' : '');
+        }
+    }
+
+    // ---- 数字键盘输入 ----
+    window.cpNumInput = async function(digit) {
+        if (_cpPasscodeInput.length >= 6) return;
+        _cpPasscodeInput += digit;
+        _cpUpdateDots();
+
+        if (_cpPasscodeInput.length === 6) {
+            // 验证密码
+            await _cpVerifyPasscode(_cpPasscodeInput);
+        }
+    };
+
+    // ---- 删除键 ----
+    window.cpNumDel = function() {
+        if (_cpPasscodeInput.length > 0) {
+            _cpPasscodeInput = _cpPasscodeInput.slice(0, -1);
+            _cpUpdateDots();
+        }
+    };
+
+    // ---- 取消密码输入 ----
+    window.cpCancelPasscode = function() {
+        _cpShowLockScreen();
+    };
+
+    // ---- 验证密码 ----
+    async function _cpVerifyPasscode(code) {
+        if (!_cpContact) return;
+
+        // 根据角色设定推算可能的密码
+        var possiblePasscodes = _cpGetPossiblePasscodes(_cpContact);
+
+        if (possiblePasscodes.includes(code)) {
+            // 密码正确
+            _cpShowUnlockedScreen();
+        } else {
+            // 密码错误
+            _cpPasscodeInput = '';
+            _cpUpdateDots();
+            // 显示错误提示并抖动
+            var errEl = document.getElementById('cp-passcode-error');
+            if (errEl) errEl.style.display = 'block';
+            var hintEl = document.getElementById('cp-passcode-hint');
+            if (hintEl) hintEl.textContent = '密码错误，请重试';
+            // 圆点变红
+            for (var i = 0; i < 6; i++) {
+                var dot = document.getElementById('cp-dot-' + i);
+                if (dot) dot.className = 'cp-dot error';
+            }
+            // 抖动动画
+            var dotsEl = document.getElementById('cp-passcode-dots');
+            if (dotsEl) {
+                var seq = [8, -8, 6, -6, 4, 0];
+                var idx = 0;
+                var t = setInterval(function() {
+                    dotsEl.style.transform = 'translateX(' + seq[idx] + 'px)';
+                    idx++;
+                    if (idx >= seq.length) {
+                        clearInterval(t);
+                        dotsEl.style.transform = '';
+                        // 恢复圆点
+                        setTimeout(function() {
+                            _cpUpdateDots();
+                            if (errEl) errEl.style.display = 'none';
+                            if (hintEl) hintEl.textContent = '输入密码';
+                        }, 300);
+                    }
+                }, 60);
+            }
+        }
+    }
+
+    // ---- 根据角色设定推算可能的密码 ----
+    // 密码可能是：角色生日、用户生日、特殊纪念日（从设定中提取数字）
+    function _cpGetPossiblePasscodes(contact) {
+        var codes = [];
+        var detail = (contact.roleDetail || '') + ' ' + (contact.userDetail || '');
+
+        // 提取所有连续的数字串（4-8位）
+        var numMatches = detail.match(/\d{4,8}/g) || [];
+        numMatches.forEach(function(n) {
+            // 取前6位或后6位
+            if (n.length >= 6) codes.push(n.substring(0, 6));
+            if (n.length > 6) codes.push(n.substring(n.length - 6));
+            if (n.length === 4) codes.push(n + '00'); // 年份补零
+        });
+
+        // 提取日期格式（YYYYMMDD, MMDD, MM/DD, YYYY/MM/DD）
+        var datePatterns = [
+            /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/g,  // YYYY-MM-DD
+            /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/g,  // MM-DD-YYYY
+            /(\d{4})(\d{2})(\d{2})/g                      // YYYYMMDD
+        ];
+        datePatterns.forEach(function(pattern) {
+            var m;
+            var str = detail;
+            pattern.lastIndex = 0;
+            while ((m = pattern.exec(str)) !== null) {
+                // 尝试各种6位组合
+                var parts = [m[1], m[2], m[3]].map(function(p) { return p.padStart(2, '0'); });
+                codes.push(parts.join('').substring(0, 6));
+                codes.push((parts[0].substring(2) + parts[1] + parts[2]).substring(0, 6));
+                codes.push((parts[1] + parts[2] + parts[0].substring(2)).substring(0, 6));
+            }
+        });
+
+        // 过滤：只保留6位纯数字
+        codes = codes.filter(function(c) { return /^\d{6}$/.test(c); });
+        // 去重
+        codes = Array.from(new Set(codes));
+
+        return codes;
+    }
+
+    // ---- 询问角色密码 ----
+    window.cpAskRoleForPassword = async function() {
+        if (_cpAsking || !_cpContact) return;
+        _cpAsking = true;
+
+        var btn = document.getElementById('cp-ask-role-btn');
+        if (btn) btn.style.opacity = '0.5';
+
+        // 隐藏之前的回复气泡
+        var bubble = document.getElementById('cp-role-reply-bubble');
+        var replyText = document.getElementById('cp-role-reply-text');
+        if (bubble) bubble.style.display = 'none';
+
+        try {
+            var apiUrl = await localforage.getItem('miffy_api_url');
+            var apiKey = await localforage.getItem('miffy_api_key');
+            var model = await localforage.getItem('miffy_api_model');
+            var temp = parseFloat(await localforage.getItem('miffy_api_temp')) || 0.7;
+
+            if (!apiUrl || !apiKey || !model) {
+                // 没有配置API，角色直接拒绝
+                _cpShowRoleReply(_cpGetFallbackRefusal(_cpContact));
+                return;
+            }
+
+            var contact = _cpContact;
+            var detail = contact.roleDetail || '';
+            var userName = contact.userName || '用户';
+
+            // 构建询问密码的prompt：角色根据人设决定是否透露
+            var sysPrompt = '你是' + (contact.roleName || '对方') + '，' + (detail || '一个普通人') + '\n' +
+                '【场景】' + userName + '正在试图查看你的手机，他/她问你手机密码是什么。\n' +
+                '【要求】根据你的角色性格和当前关系，决定是否告诉对方密码。\n' +
+                '- 如果你们关系亲密且你信任对方，可以暗示或透露密码（但不能直接说出6位数字，要用隐晦的方式提示，比如"你难道忘了吗，就是我们第一次见面那天"或"你猜猜，和我生日有关"）\n' +
+                '- 如果你不信任对方或关系一般，坚决拒绝并质问为什么要查你手机\n' +
+                '- 无论如何，绝对不能直接说出6位数字密码\n' +
+                '- 回复要极度口语化、真实自然，像真人发消息一样简短，不超过50字';
+
+            var messages = [
+                { role: 'system', content: sysPrompt },
+                { role: 'user', content: '你手机密码是多少？' }
+            ];
+
+            var cleanApiUrl = apiUrl.replace(/\/+$/, '').replace(/\/v1$/, '');
+            var endpoint = cleanApiUrl + '/v1/chat/completions';
+            var response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+                body: JSON.stringify({ model: model, messages: messages, temperature: temp })
+            });
+
+            if (!response.ok) throw new Error('API请求失败');
+            var data = await response.json();
+            var replyContent = data.choices[0].message.content.trim();
+            _cpShowRoleReply(replyContent);
+
+        } catch(e) {
+            console.error('询问密码失败', e);
+            _cpShowRoleReply(_cpGetFallbackRefusal(_cpContact));
+        } finally {
+            _cpAsking = false;
+            if (btn) btn.style.opacity = '1';
+        }
+    };
+
+    // ---- 获取默认拒绝回复 ----
+    function _cpGetFallbackRefusal(contact) {
+        var refusals = [
+            '你干嘛要看我手机？',
+            '凭什么告诉你？',
+            '不告诉你。',
+            '你想干什么？',
+            '这是我的隐私，不行。',
+            '不可能告诉你的。'
+        ];
+        return refusals[Math.floor(Math.random() * refusals.length)];
+    }
+
+    // ---- 锁屏壁纸更换功能 ----
+    window.cpChangeWallpaper = async function(event) {
+        var file = event.target.files[0];
+        if (!file || !_cpContact) {
+            event.target.value = '';
+            return;
+        }
+        var reader = new FileReader();
+        reader.onload = async function(e) {
+            var base64 = e.target.result;
+            var wpBg = 'url(' + base64 + ') center/cover no-repeat';
+            // 应用到锁屏和密码页壁纸
+            ['cp-lock-wallpaper', 'cp-passcode-wallpaper'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.style.background = wpBg;
+            });
+            // 持久化保存
+            var savedWallpaperKey = 'cp_wallpaper_' + _cpContact.id;
+            try {
+                await localforage.setItem(savedWallpaperKey, base64);
+            } catch(err) { console.error('壁纸保存失败', err); }
+        };
+        reader.readAsDataURL(file);
+        event.target.value = '';
+    };
+
+    // ---- 锁屏左下角星星按钮：切换自定义面板（操作查手机桌面壁纸/图标，不动锁屏壁纸）----
+    window.toggleCpCustomPanel = function(e) {
+        if (e) e.stopPropagation();
+        var panel = document.getElementById('cp-custom-panel');
+        if (!panel) return;
+        if (panel.classList.contains('show')) {
+            panel.classList.remove('show');
+            setTimeout(function() { panel.style.display = 'none'; }, 280);
+        } else {
+            panel.style.display = 'flex';
+            // 填充查手机桌面图标按钮（10个）
+            _cpInitIconRows();
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    panel.classList.add('show');
+                });
+            });
+            // 面板本身阻止事件冒泡到锁屏层（防止触发上滑密码页）
+            panel.addEventListener('click', function(ev) { ev.stopPropagation(); }, true);
+            panel.addEventListener('touchstart', function(ev) { ev.stopPropagation(); }, true);
+            panel.addEventListener('touchend', function(ev) { ev.stopPropagation(); }, true);
+            panel.addEventListener('touchmove', function(ev) { ev.stopPropagation(); }, true);
+            panel.addEventListener('mousedown', function(ev) { ev.stopPropagation(); }, true);
+            panel.addEventListener('mouseup', function(ev) { ev.stopPropagation(); }, true);
+        }
+        // 点击锁屏其他地方关闭面板
+        var lockScreen = document.getElementById('cp-lock-screen');
+        if (lockScreen) {
+            lockScreen.addEventListener('click', function closePanelOnBg(ev) {
+                var panel2 = document.getElementById('cp-custom-panel');
+                var starBtn = document.getElementById('cp-lock-star-btn');
+                if (panel2 && !panel2.contains(ev.target) && ev.target !== starBtn && !starBtn.contains(ev.target)) {
+                    panel2.classList.remove('show');
+                    setTimeout(function() { panel2.style.display = 'none'; }, 280);
+                    lockScreen.removeEventListener('click', closePanelOnBg);
+                }
+            });
+        }
+    };
+
+    // ---- 初始化自定义面板中的10个查手机桌面图标按钮 ----
+    // 注意：这里操作的是查手机桌面的 cp-desktop-icon-bg，不是主题页的 mainIcons！
+    var _cpDesktopIconData = []; // 存储查手机桌面图标的base64数据
+
+    function _cpInitIconRows() {
+        var row1 = document.getElementById('cp-icon-row-1');
+        var row2 = document.getElementById('cp-icon-row-2');
+        if (!row1 || !row2) return;
+        // 每次打开都重新渲染（因为图标可能已更新）
+        row1.innerHTML = '';
+        row2.innerHTML = '';
+
+        // 查手机桌面图标的名称（对应桌面上的10个图标）
+        var cpIconNames = ['备忘录', '相册', '音乐', '短视频', '资产', '购物', '浏览器', '私密空间', '电话', 'Chat'];
+
+        for (var i = 0; i < 10; i++) {
+            (function(idx) {
+                var iconName = cpIconNames[idx] || ('图标' + (idx + 1));
+                var item = document.createElement('div');
+                item.className = 'cp-custom-item';
+
+                var wrap = document.createElement('div');
+                wrap.className = 'cp-custom-icon-wrap';
+
+                // 显示已存储的查手机桌面图标，若无则显示占位SVG
+                var savedData = _cpDesktopIconData[idx];
+                if (savedData) {
+                    var img = document.createElement('img');
+                    img.src = savedData;
+                    img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:10px;';
+                    wrap.appendChild(img);
+                } else {
+                    wrap.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+                }
+
+                var label = document.createElement('span');
+                label.textContent = iconName;
+
+                item.appendChild(wrap);
+                item.appendChild(label);
+
+                // 点击触发查手机桌面图标更换（不影响主题页图标）
+                item.addEventListener('click', function(ev) {
+                    ev.stopPropagation();
+                    var fileInput = document.getElementById('cp-icon-input-' + idx);
+                    if (fileInput) fileInput.click();
+                });
+
+                if (idx < 5) {
+                    row1.appendChild(item);
+                } else {
+                    row2.appendChild(item);
+                }
+            })(i);
+        }
+    }
+
+    // ---- 更换查手机桌面壁纸（解锁后全屏背景）----
+    window.cpChangeDesktopWallpaper = async function(event) {
+        var file = event.target.files[0];
+        if (!file || !_cpContact) { event.target.value = ''; return; }
+        var reader = new FileReader();
+        reader.onload = async function(e) {
+            var base64 = e.target.result;
+            var bgStyle = 'url(' + base64 + ') center/cover no-repeat';
+            var unlockedWp = document.getElementById('cp-unlocked-wallpaper');
+            if (unlockedWp) unlockedWp.style.background = bgStyle;
+            var bgKey = 'cp_desktop_wallpaper_' + _cpContact.id;
+            try { await localforage.setItem(bgKey, base64); } catch(err) { console.error('桌面壁纸保存失败', err); }
+        };
+        reader.readAsDataURL(file);
+        event.target.value = '';
+    };
+
+    // ---- 更换查手机角色信息卡背景图（cp-profile-bg）----
+    window.cpChangeProfileBg = async function(event) {
+        var file = event.target.files[0];
+        if (!file || !_cpContact) { event.target.value = ''; return; }
+        var reader = new FileReader();
+        reader.onload = async function(e) {
+            var base64 = e.target.result;
+            var profileBg = document.getElementById('cp-profile-bg');
+            if (profileBg) profileBg.style.background = 'url(' + base64 + ') center/cover no-repeat';
+            var bgKey = 'cp_profile_bg_' + _cpContact.id;
+            try { await localforage.setItem(bgKey, base64); } catch(err) { console.error('角色卡背景保存失败', err); }
+        };
+        reader.readAsDataURL(file);
+        event.target.value = '';
+    };
+
+    // ---- 更换查手机桌面某个图标 ----
+    window.cpChangeDesktopIcon = async function(event, idx) {
+        var file = event.target.files[0];
+        if (!file || !_cpContact) { event.target.value = ''; return; }
+        var reader = new FileReader();
+        reader.onload = async function(e) {
+            var base64 = e.target.result;
+            // 存储图标数据
+            _cpDesktopIconData[idx] = base64;
+            // 更新查手机桌面上对应的图标（cp-desktop-icon-bg，按行列顺序）
+            var allIconBgs = document.querySelectorAll('#cp-unlocked-screen .cp-desktop-icon-bg');
+            if (allIconBgs[idx]) {
+                allIconBgs[idx].style.background = 'url(' + base64 + ') center/cover no-repeat';
+                allIconBgs[idx].innerHTML = ''; // 清除SVG内容
+            }
+            // 更新面板内图标预览
+            _cpInitIconRows();
+            // 持久化（按联系人隔离）
+            var iconKey = 'cp_desktop_icon_' + _cpContact.id + '_' + idx;
+            try { await localforage.setItem(iconKey, base64); } catch(err) { console.error('图标保存失败', err); }
+        };
+        reader.readAsDataURL(file);
+        event.target.value = '';
+    };
+
+    // ---- 显示角色回复气泡 ----
+    function _cpShowRoleReply(text) {
+        var bubble = document.getElementById('cp-role-reply-bubble');
+        var replyTextEl = document.getElementById('cp-role-reply-text');
+        if (!bubble || !replyTextEl) return;
+        replyTextEl.textContent = text;
+        bubble.style.display = 'flex';
+        // 滚动到底部
+        var content = document.getElementById('cp-passcode-content');
+        if (content) {
+            setTimeout(function() { content.scrollTop = content.scrollHeight; }, 100);
+        }
+    }
 
 })();

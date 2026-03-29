@@ -2104,7 +2104,7 @@ document.getElementById('contact-edit-id').value = '';
         if (!content) return '';
         try {
             const parsed = JSON.parse(content);
-            if (parsed.type === 'voice_message') return '[语音] ' + (parsed.content || '');
+            if (parsed.type === 'voice_message') return '[语音]';
             if (parsed.type === 'camera') return '[相片] ' + (parsed.content || '');
             if (parsed.type === 'image') return '[图片]';
             if (parsed.type === 'emoticon') return `[表情] ${parsed.desc || ''}`;
@@ -2212,24 +2212,6 @@ document.getElementById('contact-edit-id').value = '';
         let isVoiceMsg = false;
         let voiceText = '';
         let voiceSeconds = 0;
-
-        // ====== 修复掉格：检测纯文本中的特殊格式前缀，转换为对应结构化内容 ======
-        // 处理 [语音] 前缀：将 "[语音]内容" 或 "[语音] 内容" 转为语音气泡
-        if (!isVoiceMsg && msg.content && /^\[语音\]\s*/i.test(msg.content)) {
-            const _voiceRawText = msg.content.replace(/^\[语音\]\s*/i, '').trim();
-            if (_voiceRawText) {
-                isVoiceMsg = true;
-                voiceText = _voiceRawText;
-                voiceSeconds = Math.max(1, Math.ceil(_voiceRawText.length / 3));
-            }
-        }
-        // 处理 [相片] 前缀
-        if (!isCameraMsg && msg.content && /^\[相片\]\s*/i.test(msg.content)) {
-            const _camRawText = msg.content.replace(/^\[相片\]\s*/i, '').trim();
-            isCameraMsg = true;
-            cameraDesc = _camRawText || '（未描述）';
-        }
-
         try {
             // 尝试解析 JSON 格式
             const parsed = JSON.parse(msg.content);
@@ -2512,8 +2494,6 @@ document.getElementById('contact-edit-id').value = '';
     async function enterChatWindow(contactId) {
         const contact = await contactDb.contacts.get(contactId);
         if (!contact) return;
-        // 核心修复：进入新聊天窗口前，先强制重置 isReplying，防止旧联系人的回复锁死新聊天
-        isReplying = false;
         activeChatContact = contact;
         const win = document.getElementById('chat-window');
         win.style.display = 'flex';
@@ -3945,8 +3925,9 @@ ${langInstruction}
             isReplying = false;
             if (activeChatContact && activeChatContact.id === lockedContact.id) {
                 input.disabled = false;
-                if (sendBtn) { sendBtn.style.pointerEvents = 'auto'; sendBtn.style.opacity = '1'; }
-                if (titleEl) titleEl.textContent = originalTitle;
+                sendBtn.style.pointerEvents = 'auto';
+                sendBtn.style.opacity = '1';
+                titleEl.textContent = originalTitle;
             }
             // 角色回复完成后，AI自主判断是否拉黑用户（5%概率触发）
             // 在 finally 中异步执行，不阻塞主流程
@@ -4223,10 +4204,8 @@ ${langInstruction}
             return;
         }
         if (!content || !activeChatContact) return;
-        // 核心修复：在发送时立即锁定当前联系人快照，防止发送过程中 activeChatContact 被切换导致串台
-        const _sendContact = activeChatContact;
         // 【注意】如果角色已拉黑用户，WeChat 中无法发消息
-        if (isBlockedByRole(_sendContact)) {
+        if (isBlockedByRole(activeChatContact)) {
             // 显示提示，不发送
             const banner = document.getElementById('role-blocked-banner');
             if (banner) {
@@ -4237,10 +4216,10 @@ ${langInstruction}
             return;
         }
         // 【注意】如果联系人处于被拉黑状态，发消息不触发自动回复
-        const _contactIsBlocked = !!_sendContact.blocked;
+        const _contactIsBlocked = !!activeChatContact.blocked;
         const container = document.getElementById('chat-msg-container');
-        const myAvatar = _sendContact.userAvatar || 'https://via.placeholder.com/100';
-        const roleAvatar = _sendContact.roleAvatar || 'https://via.placeholder.com/100';
+        const myAvatar = activeChatContact.userAvatar || 'https://via.placeholder.com/100';
+        const roleAvatar = activeChatContact.roleAvatar || 'https://via.placeholder.com/100';
         const timeStr = getAmPmTime();
         // 处理引用文本 (打包为 JSON 格式存储以便渲染)
         let quoteText = '';
@@ -4248,7 +4227,7 @@ ${langInstruction}
             const qMsg = await chatListDb.messages.get(currentQuoteMsgId);
             if (qMsg) {
                 const myName = document.getElementById('text-wechat-me-name') ? document.getElementById('text-wechat-me-name').textContent : '我';
-                const name = qMsg.sender === 'me' ? myName : (_sendContact.roleName || '角色');
+                const name = qMsg.sender === 'me' ? myName : (activeChatContact.roleName || '角色');
                 const shortTime = qMsg.timeStr ? qMsg.timeStr.replace(' CST', '') : '';
                 quoteText = JSON.stringify({ 
                     name: name, 
@@ -4260,31 +4239,26 @@ ${langInstruction}
         }
         try {
             const newMsgId = await chatListDb.messages.add({
-                contactId: _sendContact.id,
+                contactId: activeChatContact.id,
                 sender: 'me',
                 content: content,
                 timeStr: timeStr,
                 quoteText: quoteText,
                 source: 'wechat'
             });
-            const chat = await chatListDb.chats.where('contactId').equals(_sendContact.id).first();
+            const chat = await chatListDb.chats.where('contactId').equals(activeChatContact.id).first();
             if (chat) {
                 await chatListDb.chats.update(chat.id, { lastTime: timeStr });
                 renderChatList(); 
             }
-            // 核心修复：只有当前聊天窗口仍然是这个联系人时，才渲染气泡到界面
-            if (activeChatContact && activeChatContact.id === _sendContact.id) {
-                const msgObj = { id: newMsgId, sender: 'me', content: content, timeStr: timeStr, quoteText: quoteText };
-                container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
-                bindMsgEvents();
-                input.value = '';
-                container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-            } else {
-                input.value = '';
-            }
+            const msgObj = { id: newMsgId, sender: 'me', content: content, timeStr: timeStr, quoteText: quoteText };
+            container.insertAdjacentHTML('beforeend', generateMsgHtml(msgObj, myAvatar, roleAvatar));
+            bindMsgEvents();
+            input.value = '';
+            container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
             // 修罗场模式：用户发消息时重置沉默计时器
             if (typeof window._shuraOnUserSendMsg === 'function') {
-                window._shuraOnUserSendMsg(_sendContact.id);
+                window._shuraOnUserSendMsg(activeChatContact.id);
             }
             // 【注意】角色不自动回复普通消息。被拉黑状态下也不触发自动回复。
             // 只有在非拉黑状态且调用 triggerRoleReply 时才会触发回复。
@@ -4747,28 +4721,6 @@ ${langInstruction}
                 performSendMessage();
             }
         });
-
-        // iOS键盘修复：点击聊天区域时确保输入框可聚焦（iOS需要从用户手势直接触发focus）
-        const chatMsgContainer = document.getElementById('chat-msg-container');
-        const chatInputMain = document.getElementById('chat-input-main');
-        if (chatMsgContainer && chatInputMain) {
-            chatMsgContainer.addEventListener('touchend', function(e) {
-                // 点击消息区域时不弹出键盘（只有点击输入框才弹）
-                e.stopPropagation();
-            }, { passive: true });
-        }
-
-        // iOS键盘修复：确保输入框在任何情况下都不会被意外锁定
-        if (chatInputMain) {
-            // 每次touchstart时确保输入框未被disabled（iOS下disabled会导致键盘弹不出）
-            chatInputMain.addEventListener('touchstart', function() {
-                // 如果角色没有拉黑用户，强制解除disabled状态
-                if (activeChatContact && !isBlockedByRole(activeChatContact)) {
-                    this.disabled = false;
-                    this.removeAttribute('readonly');
-                }
-            }, { passive: true });
-        }
     });
     // ====== 数据管理功能逻辑 ======
     // 图像压缩辅助函数 (使用 Canvas 降低图片分辨率和质量)
@@ -8632,30 +8584,92 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
-     * 渲染对峙对话：角色发现用户手机内容后，直接在聊天窗口逐条发送对峙消息给用户
-     * 不再使用单独的对峙面板，而是将对话内容作为角色消息直接发到聊天记录中
+     * 渲染对峙对话面板
      */
-    async function _renderShuraConfrontation(triggerContact, otherChatsInfo, dialogues, myName) {
-        if (!dialogues || dialogues.length === 0) return;
+    function _renderShuraConfrontation(triggerContact, otherChatsInfo, dialogues, myName) {
+        var overlay = document.getElementById('shura-confrontation-overlay');
+        var content = document.getElementById('shura-confrontation-content');
+        var subtitle = document.getElementById('shura-confrontation-subtitle');
+        if (!overlay || !content) return;
 
-        // 过滤出角色的发言（跳过用户发言）
-        var roleLines = dialogues.filter(function(d) {
-            if (!d || !d.text) return false;
+        // 更新副标题
+        if (subtitle) {
+            var otherNames = otherChatsInfo.map(function(i) { return i.contact.roleName || '角色'; }).join('、');
+            subtitle.textContent = (triggerContact.roleName || '角色') + ' 查看了你与 ' + otherNames + ' 的对话';
+        }
+
+        // 清空并填充内容
+        content.innerHTML = '';
+
+        // 顶部说明
+        var tipEl = document.createElement('div');
+        tipEl.className = 'shura-system-tip';
+        tipEl.textContent = '⚠️ ' + (triggerContact.roleName || '对方') + ' 登录了你的WeChat，查看了你与其他人的聊天记录';
+        content.appendChild(tipEl);
+
+        // 分隔线
+        var divider = document.createElement('div');
+        divider.style.cssText = 'height:1px;background:#f0f0f0;margin:4px 0 8px;';
+        content.appendChild(divider);
+
+        // 逐条渲染对话
+        var triggerAvatar = triggerContact.roleAvatar || '';
+        var myAvatar = triggerContact.userAvatar || '';
+        var roleName = triggerContact.roleName || '对方';
+
+        dialogues.forEach(function(d) {
+            if (!d || !d.text) return;
             var isMe = (d.speaker === myName || d.speaker === '用户' || d.speaker === 'user');
-            return !isMe;
+            // 只渲染角色的发言，跳过用户发言（用户自己回复）
+            if (isMe) return;
+            var speakerName = d.speaker || roleName;
+            var emotion = d.emotion || '';
+
+            var rowEl = document.createElement('div');
+            rowEl.className = 'shura-bubble-left';
+
+            // 头像
+            var avatarEl = document.createElement('div');
+            avatarEl.className = 'shura-avatar';
+            var avatarSrc = triggerAvatar;
+            if (avatarSrc) {
+                avatarEl.innerHTML = '<img src="' + avatarSrc + '" alt="">';
+            } else {
+                avatarEl.style.background = '#f0f0f0';
+                avatarEl.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:12px;color:#aaa;">' + (speakerName.charAt(0) || '?') + '</div>';
+            }
+
+            // 消息包裹
+            var wrapEl = document.createElement('div');
+            wrapEl.className = 'shura-msg-wrap';
+
+            // 名字+情绪
+            var nameEl = document.createElement('div');
+            nameEl.className = 'shura-name';
+            nameEl.textContent = speakerName + (emotion ? ' · ' + emotion : '');
+
+            // 文字气泡
+            var textEl = document.createElement('div');
+            textEl.className = 'shura-text';
+            textEl.textContent = d.text;
+
+            wrapEl.appendChild(nameEl);
+            wrapEl.appendChild(textEl);
+            rowEl.appendChild(avatarEl);
+            rowEl.appendChild(wrapEl);
+            content.appendChild(rowEl);
         });
 
-        if (roleLines.length === 0) return;
+        // 底部提示
+        var bottomTip = document.createElement('div');
+        bottomTip.className = 'shura-system-tip';
+        bottomTip.textContent = '— 对峙结束 —';
+        content.appendChild(bottomTip);
 
-        // 逐条将角色发言作为真实聊天消息发送（带1.8s间隔）
-        for (var i = 0; i < roleLines.length; i++) {
-            var d = roleLines[i];
-            var msgText = d.text;
-            // 如有情绪标签，附加到消息末尾（括号内，轻描淡写）
-            // 不附加情绪标签，保持消息纯净
-            await new Promise(function(res) { setTimeout(res, i === 0 ? 800 : 1800); });
-            await appendRoleMessage(msgText, '', triggerContact);
-        }
+        // 显示面板（延迟500ms，让WeChat登录面板先显示）
+        setTimeout(function() {
+            overlay.style.display = 'flex';
+        }, 500);
     }
 
     /**
@@ -9183,342 +9197,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         _notifBannerObserver.observe(banner, { attributes: true });
-    });
-
-})();
-
-
-// ====== 鏌ユ墜鏈哄簲鐢ㄦ鏋堕€昏緫 ======
-(function() {
-    'use strict';
-
-    var _cpCurrentContact = null;
-    var _cpPwdInput = '';
-    var _cpClockTimer = null;
-
-    // 缁戝畾鏌ユ墜鏈哄浘鏍囩偣鍑?
-    document.addEventListener('DOMContentLoaded', function() {
-        var icons = document.querySelectorAll('.app-icon');
-        icons.forEach(function(icon) {
-            var span = icon.querySelector('span');
-            if (span && span.textContent.trim() === '鏌ユ墜鏈?) {
-                icon.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    openCheckPhoneModal();
-                });
-            }
-        });
-    });
-
-    // 鎵撳紑鏌ユ墜鏈哄脊绐?
-    window.openCheckPhoneModal = async function() {
-        var modal = document.getElementById('checkphone-modal');
-        var sheet = document.getElementById('checkphone-sheet');
-        if (!modal || !sheet) return;
-        var devices = ['iPhone 15 Pro', 'iPhone 14', 'iPhone 13', 'Samsung Galaxy S24', 'Xiaomi 14 Pro', 'OPPO Find X7'];
-        var deviceNameEl = document.getElementById('checkphone-device-name');
-        if (deviceNameEl) deviceNameEl.textContent = devices[Math.floor(Math.random() * devices.length)];
-        await _loadCheckPhoneContacts();
-        modal.style.display = 'flex';
-        requestAnimationFrame(function() {
-            requestAnimationFrame(function() {
-                sheet.style.transform = 'translateY(0)';
-            });
-        });
-    };
-
-    // 鍏抽棴鏌ユ墜鏈哄脊绐?
-    window.closeCheckPhoneModal = function() {
-        var sheet = document.getElementById('checkphone-sheet');
-        var modal = document.getElementById('checkphone-modal');
-        if (!sheet || !modal) return;
-        sheet.style.transform = 'translateY(100%)';
-        setTimeout(function() { modal.style.display = 'none'; }, 340);
-    };
-
-    // 鍔犺浇鑱旂郴浜哄埌缃戞牸
-    async function _loadCheckPhoneContacts() {
-        var grid = document.getElementById('checkphone-contact-grid');
-        var emptyEl = document.getElementById('checkphone-empty');
-        if (!grid) return;
-        grid.innerHTML = '';
-        try {
-            var contacts = await contactDb.contacts.toArray();
-            if (contacts.length === 0) {
-                grid.style.display = 'none';
-                if (emptyEl) emptyEl.style.display = 'block';
-                return;
-            }
-            grid.style.display = 'grid';
-            if (emptyEl) emptyEl.style.display = 'none';
-            contacts.forEach(function(contact) {
-                var item = document.createElement('div');
-                item.className = 'cp-contact-item';
-                item.onclick = function() { openCheckPhoneViewer(contact); };
-                var avatarDiv = document.createElement('div');
-                avatarDiv.className = 'cp-contact-avatar';
-                if (contact.roleAvatar) {
-                    var img = document.createElement('img');
-                    img.src = contact.roleAvatar;
-                    img.alt = contact.roleName || '';
-                    avatarDiv.appendChild(img);
-                } else {
-                    var placeholder = document.createElement('div');
-                    placeholder.className = 'cp-contact-avatar-placeholder';
-                    placeholder.textContent = (contact.roleName || '?').charAt(0);
-                    avatarDiv.appendChild(placeholder);
-                }
-                var nameDiv = document.createElement('div');
-                nameDiv.className = 'cp-contact-name';
-                localforage.getItem('cd_settings_' + contact.id + '_remark').then(function(remark) {
-                    nameDiv.textContent = (remark && remark !== '\u672a\u8bbe\u7f6e') ? remark : (contact.roleName || '\u672a\u547d\u540d');
-                }).catch(function() {
-                    nameDiv.textContent = contact.roleName || '\u672a\u547d\u540d';
-                });
-                item.appendChild(avatarDiv);
-                item.appendChild(nameDiv);
-                grid.appendChild(item);
-            });
-        } catch(e) {
-            console.error('load checkphone contacts failed', e);
-        }
-    }
-
-    // 鎵撳紑铏氭嫙鎵嬫満鏌ョ湅鍣?
-    window.openCheckPhoneViewer = function(contact) {
-        _cpCurrentContact = contact;
-        _cpPwdInput = '';
-        closeCheckPhoneModal();
-        var viewer = document.getElementById('checkphone-viewer');
-        if (!viewer) return;
-        var nameEl = document.getElementById('checkphone-viewer-name');
-        if (nameEl) nameEl.textContent = contact.roleName || '';
-        _initLockScreen(contact);
-        viewer.style.display = 'flex';
-        _startCpClock();
-    };
-
-    // 鍏抽棴铏氭嫙鎵嬫満鏌ョ湅鍣?
-    window.closeCheckPhoneViewer = function() {
-        var viewer = document.getElementById('checkphone-viewer');
-        if (viewer) viewer.style.display = 'none';
-        _cpCurrentContact = null;
-        _cpPwdInput = '';
-        _stopCpClock();
-        var lockscreen = document.getElementById('cp-lockscreen');
-        var passcode = document.getElementById('cp-passcode-screen');
-        var homescreen = document.getElementById('cp-homescreen');
-        if (lockscreen) lockscreen.style.display = 'block';
-        if (passcode) passcode.style.display = 'none';
-        if (homescreen) homescreen.style.display = 'none';
-    };
-
-    // 鍒濆鍖栭攣灞?
-    function _initLockScreen(contact) {
-        var lockscreen = document.getElementById('cp-lockscreen');
-        var passcode = document.getElementById('cp-passcode-screen');
-        var homescreen = document.getElementById('cp-homescreen');
-        if (lockscreen) lockscreen.style.display = 'block';
-        if (passcode) passcode.style.display = 'none';
-        if (homescreen) homescreen.style.display = 'none';
-        var wallpaper = document.getElementById('cp-lock-wallpaper');
-        if (wallpaper && contact.roleAvatar) {
-            wallpaper.style.backgroundImage = 'url(' + contact.roleAvatar + ')';
-            wallpaper.style.backgroundSize = 'cover';
-            wallpaper.style.backgroundPosition = 'center';
-            wallpaper.style.filter = 'blur(20px) brightness(0.5)';
-            wallpaper.style.transform = 'scale(1.1)';
-        } else if (wallpaper) {
-            wallpaper.style.backgroundImage = '';
-            wallpaper.style.filter = '';
-            wallpaper.style.transform = '';
-        }
-        var notifTitle = document.getElementById('cp-notif-title');
-        var notifBody = document.getElementById('cp-notif-body');
-        if (notifTitle) notifTitle.textContent = 'WeChat';
-        if (notifBody) notifBody.textContent = (contact.roleName || '') + '锛氫綘鏈夋柊娑堟伅';
-        _updateCpTime();
-        _bindSwipeToUnlock();
-    }
-
-    // 缁戝畾涓婃粦瑙ｉ攣鎵嬪娍
-    function _bindSwipeToUnlock() {
-        var swipeZone = document.getElementById('cp-swipe-zone');
-        if (!swipeZone || swipeZone._cpBound) return;
-        swipeZone._cpBound = true;
-        var startY = 0;
-        swipeZone.addEventListener('touchstart', function(e) {
-            startY = e.touches[0].clientY;
-        }, { passive: true });
-        swipeZone.addEventListener('touchend', function(e) {
-            var endY = e.changedTouches[0].clientY;
-            if (startY - endY > 40) { _showPasscodeScreen(); }
-        }, { passive: true });
-        swipeZone.addEventListener('click', function() { _showPasscodeScreen(); });
-        var lockContent = document.querySelector('.cp-lock-content');
-        if (lockContent && !lockContent._cpBound) {
-            lockContent._cpBound = true;
-            lockContent.addEventListener('click', function() { _showPasscodeScreen(); });
-        }
-    }
-
-    // 鏄剧ず瀵嗙爜杈撳叆灞?
-    function _showPasscodeScreen() {
-        var lockscreen = document.getElementById('cp-lockscreen');
-        var passcode = document.getElementById('cp-passcode-screen');
-        if (lockscreen) lockscreen.style.display = 'none';
-        if (passcode) passcode.style.display = 'block';
-        if (_cpCurrentContact && _cpCurrentContact.roleAvatar) {
-            var pwWall = document.getElementById('cp-passcode-wallpaper');
-            if (pwWall) {
-                pwWall.style.backgroundImage = 'url(' + _cpCurrentContact.roleAvatar + ')';
-                pwWall.style.backgroundSize = 'cover';
-                pwWall.style.backgroundPosition = 'center';
-            }
-        }
-        _cpPwdInput = '';
-        _updateCpDots();
-        var hint = document.getElementById('cp-passcode-hint');
-        if (hint && _cpCurrentContact) {
-            hint.textContent = '\u8bd5\u8bd5' + (_cpCurrentContact.roleName || '') + '\u7684\u751f\u65e5\u6216\u7eaa\u5ff5\u65e5';
-        }
-        var errEl = document.getElementById('cp-passcode-error');
-        if (errEl) errEl.style.display = 'none';
-    }
-
-    // 瀵嗙爜閿洏杈撳叆
-    window.cpKeyInput = function(digit) {
-        if (_cpPwdInput.length >= 6) return;
-        _cpPwdInput += digit;
-        _updateCpDots();
-        if (_cpPwdInput.length === 6) {
-            setTimeout(function() { _checkCpPassword(); }, 200);
-        }
-    };
-
-    // 瀵嗙爜閿洏鍒犻櫎
-    window.cpKeyDel = function() {
-        if (_cpPwdInput.length > 0) {
-            _cpPwdInput = _cpPwdInput.slice(0, -1);
-            _updateCpDots();
-        }
-    };
-
-    // 鍙栨秷瀵嗙爜杈撳叆
-    window.cpCancelPasscode = function() {
-        var lockscreen = document.getElementById('cp-lockscreen');
-        var passcode = document.getElementById('cp-passcode-screen');
-        if (lockscreen) lockscreen.style.display = 'block';
-        if (passcode) passcode.style.display = 'none';
-        _cpPwdInput = '';
-        _updateCpDots();
-    };
-
-    // 鏇存柊瀵嗙爜鐐规樉绀?
-    function _updateCpDots() {
-        for (var i = 0; i < 6; i++) {
-            var dot = document.getElementById('cpd' + i);
-            if (!dot) continue;
-            if (i < _cpPwdInput.length) {
-                dot.classList.add('filled');
-                dot.style.background = '#fff';
-            } else {
-                dot.classList.remove('filled');
-                dot.style.background = 'transparent';
-            }
-        }
-    }
-
-    // 妫€鏌ュ瘑鐮侊紙妗嗘灦锛氬瘑鐮佹案杩滈敊璇紝瑙掕壊涓嶅憡璇夌敤鎴峰瘑鐮侊級
-    function _checkCpPassword() {
-        var errEl = document.getElementById('cp-passcode-error');
-        if (errEl) {
-            errEl.style.display = 'block';
-            errEl.textContent = '\u5bc6\u7801\u9519\u8bef\uff0c\u8bf7\u91cd\u8bd5';
-        }
-        var dotsEl = document.getElementById('cp-passcode-dots');
-        if (dotsEl) {
-            dotsEl.style.transition = 'transform 0.08s';
-            var seq = [8, -8, 6, -6, 4, 0];
-            var idx = 0;
-            var t = setInterval(function() {
-                dotsEl.style.transform = 'translateX(' + seq[idx] + 'px)';
-                idx++;
-                if (idx >= seq.length) { clearInterval(t); dotsEl.style.transform = ''; }
-            }, 60);
-        }
-        setTimeout(function() { _cpPwdInput = ''; _updateCpDots(); }, 600);
-    }
-
-    // 鏇存柊铏氭嫙鎵嬫満鏃堕挓
-    function _updateCpTime() {
-        var now = new Date();
-        var hh = String(now.getHours()).padStart(2, '0');
-        var mm = String(now.getMinutes()).padStart(2, '0');
-        var timeStr = hh + ':' + mm;
-        var lockTime = document.getElementById('cp-lock-time');
-        if (lockTime) lockTime.textContent = timeStr;
-        var statusTime = document.getElementById('cp-status-time');
-        if (statusTime) statusTime.textContent = timeStr;
-        var months = ['1\u6708','2\u6708','3\u6708','4\u6708','5\u6708','6\u6708','7\u6708','8\u6708','9\u6708','10\u6708','11\u6708','12\u6708'];
-        var weeks = ['\u661f\u671f\u65e5','\u661f\u671f\u4e00','\u661f\u671f\u4e8c','\u661f\u671f\u4e09','\u661f\u671f\u56db','\u661f\u671f\u4e94','\u661f\u671f\u516d'];
-        var dateStr = months[now.getMonth()] + now.getDate() + '\u65e5 ' + weeks[now.getDay()];
-        var lockDate = document.getElementById('cp-lock-date');
-        if (lockDate) lockDate.textContent = dateStr;
-    }
-
-    function _startCpClock() {
-        _updateCpTime();
-        _cpClockTimer = setInterval(_updateCpTime, 1000);
-    }
-
-    function _stopCpClock() {
-        if (_cpClockTimer) { clearInterval(_cpClockTimer); _cpClockTimer = null; }
-    }
-
-    // 鍒濆鍖栨闈俊鎭崱鐗囨暟鎹紙鍦ㄥ瘑鐮佹纭悗璋冪敤锛屽綋鍓嶄负妗嗘灦锛?
-    function _initHomeScreen(contact) {
-        var avatar = document.getElementById('cp-info-card-avatar');
-        if (avatar) {
-            avatar.src = contact.roleAvatar || '';
-            avatar.style.display = contact.roleAvatar ? 'block' : 'none';
-        }
-        var bgImg = document.getElementById('cp-info-card-bg-img');
-        if (bgImg && contact.roleAvatar) {
-            bgImg.src = contact.roleAvatar;
-            bgImg.style.display = 'block';
-        }
-        var nameEl = document.getElementById('cp-info-card-name');
-        if (nameEl) nameEl.textContent = contact.roleName || '';
-        var sigEl = document.getElementById('cp-info-card-sig');
-        if (sigEl) {
-            var detail = contact.roleDetail || '';
-            sigEl.textContent = detail.length > 0 ? (detail.length > 30 ? detail.substring(0, 30) + '...' : detail) : '\u8fd9\u4e2a\u4eba\u5f88\u795e\u79d8...';
-        }
-        var homeWall = document.getElementById('cp-home-wallpaper');
-        if (homeWall && contact.roleAvatar) {
-            homeWall.style.backgroundImage = 'url(' + contact.roleAvatar + ')';
-            homeWall.style.backgroundSize = 'cover';
-            homeWall.style.backgroundPosition = 'center';
-            homeWall.style.filter = 'brightness(0.6) blur(2px)';
-            homeWall.style.transform = 'scale(1.05)';
-        }
-    }
-
-    // 妗岄潰淇℃伅鍗＄墖鐐瑰嚮缂栬緫锛堟鏋讹級
-    document.addEventListener('DOMContentLoaded', function() {
-        var infoCard = document.querySelector('.cp-info-card');
-        if (infoCard) {
-            infoCard.addEventListener('click', function() {
-                if (!_cpCurrentContact) return;
-                var nameEl = document.getElementById('cp-info-card-name');
-                if (!nameEl) return;
-                var newName = prompt('\u4fee\u6539\u89d2\u8272\u540d\uff1a', nameEl.textContent);
-                if (newName !== null && newName.trim()) {
-                    nameEl.textContent = newName.trim();
-                }
-            });
-        }
     });
 
 })();

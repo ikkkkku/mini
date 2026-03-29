@@ -753,9 +753,18 @@
     text-align: center; font-size: 11px; color: #aaa; margin: 10px 0; width: 100%;
 }
 .msg-recalled-tip span { cursor: pointer; color: #6a8cd9; margin-left: 4px; }
+/* 系统消息行（撤回提示/系统小字）在多选模式下的布局 */
+.msg-system-row {
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 10px; width: 100%; box-sizing: border-box;
+}
+.msg-system-row .msg-recalled-tip {
+    margin: 10px 0; flex: 1;
+}
 /* 多选模式样式 */
 .chat-body.multi-select-mode .msg-checkbox { display: flex; }
 .chat-body.multi-select-mode .chat-msg-avatar { display: none; }
+.chat-body.multi-select-mode .msg-system-row .msg-checkbox { display: flex; }
 .msg-checkbox {
     width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid #ccc;
     margin-top: 8px; display: none; align-items: center; justify-content: center;

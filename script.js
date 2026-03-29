@@ -2106,7 +2106,12 @@ document.getElementById('contact-edit-id').value = '';
         if (msg.isRecalled) {
             const myName = document.getElementById('text-wechat-me-name') ? document.getElementById('text-wechat-me-name').textContent : '我';
             const name = msg.sender === 'me' ? myName : (activeChatContact.roleName || '角色');
-            return `<div class="msg-recalled-tip">"${name}"撤回了一条消息 <span onclick="viewRecalledMsg(${msg.id})">查看</span></div>`;
+            // 修复：多选模式下撤回提示也要可被选中删除，包裹 chat-msg-row 容器并附加 data-id
+            const _isCheckedRecalled = selectedMsgIds.has(msg.id) ? 'checked' : '';
+            return `<div class="chat-msg-row msg-system-row" data-id="${msg.id}" data-sender="${msg.sender}" onclick="if(multiSelectMode){toggleMsgCheck(${msg.id})}">
+                <div class="msg-checkbox ${_isCheckedRecalled}" onclick="toggleMsgCheck(${msg.id})"></div>
+                <div class="msg-recalled-tip" style="flex:1;">"${name}"撤回了一条消息 <span onclick="event.stopPropagation();viewRecalledMsg(${msg.id})">查看</span></div>
+            </div>`;
         }
         // 系统提示消息（红包/转账状态提示等）单独渲染，不走气泡逻辑
         if (msg.isSystemTip) {
@@ -2116,7 +2121,12 @@ document.getElementById('contact-edit-id').value = '';
                 const _sysParsed = JSON.parse(msg.content);
                 if (_sysParsed && _sysParsed.content) _sysTipText = _sysParsed.content;
             } catch(e) {}
-            return `<div class="msg-recalled-tip">${_sysTipText}</div>`;
+            // 修复：多选模式下系统提示也要可被选中删除，包裹 chat-msg-row 容器并附加 data-id
+            const _isCheckedSys = selectedMsgIds.has(msg.id) ? 'checked' : '';
+            return `<div class="chat-msg-row msg-system-row" data-id="${msg.id}" data-sender="${msg.sender}" onclick="if(multiSelectMode){toggleMsgCheck(${msg.id})}">
+                <div class="msg-checkbox ${_isCheckedSys}" onclick="toggleMsgCheck(${msg.id})"></div>
+                <div class="msg-recalled-tip" style="flex:1;">${_sysTipText}</div>
+            </div>`;
         }
         // 拉黑申请消息：使用专用渲染函数（带红色感叹号徽章）
         try {
@@ -4602,6 +4612,8 @@ ${langInstruction}
     async function deleteSelectedMsgs() {
         if (selectedMsgIds.size === 0) return;
         if (confirm(`确定要删除选中的 ${selectedMsgIds.size} 条消息吗？`)) {
+            // 修复：多选删除时，同时删除系统小字（撤回提示、系统提示等）中被选中的条目
+            // selectedMsgIds 中的 id 可能包含系统消息（isRecalled/isSystemTip），一并删除
             await chatListDb.messages.bulkDelete(Array.from(selectedMsgIds));
             exitMultiSelectMode();
             await refreshChatWindow();
@@ -5271,6 +5283,19 @@ async function _doClaimRp(senderRole, roleName, amount) {
     var msgIdRef = _rpClaimMsgId;
     closeRpClaimModal();
     if (!cardElRef) return;
+    // 修复：领取前先从 IndexedDB 验证当前状态，防止多次领取
+    if (msgIdRef) {
+        try {
+            var checkMsg = await chatListDb.messages.get(msgIdRef);
+            if (checkMsg) {
+                var checkParsed = JSON.parse(checkMsg.content);
+                if (checkParsed.status === 'claimed') {
+                    // 已被领取，直接返回，不重复操作
+                    return;
+                }
+            }
+        } catch(e) {}
+    }
     // 更新卡片状态（DOM）
     var statusEl = cardElRef.querySelector('.rp-card-status');
     if (statusEl) {
@@ -5390,6 +5415,19 @@ async function _doTfAction(newStatus, senderRole, roleName) {
     var amountRef = _tfActionAmount;
     closeTfActionModal();
     if (!cardElRef) return;
+    // 修复：操作前先从 IndexedDB 验证当前状态，防止多次接收/退回
+    if (msgIdRef) {
+        try {
+            var checkMsg2 = await chatListDb.messages.get(msgIdRef);
+            if (checkMsg2) {
+                var checkParsed2 = JSON.parse(checkMsg2.content);
+                if (checkParsed2.status === 'received' || checkParsed2.status === 'refunded') {
+                    // 已处理过，直接返回，不重复操作
+                    return;
+                }
+            }
+        } catch(e) {}
+    }
     var statusEl = cardElRef.querySelector('.tf-card-status');
     if (statusEl) {
         if (newStatus === 'received') {
@@ -6611,9 +6649,18 @@ function _renderBills() {
         if (chatTitle && activeChatContact) chatTitle.textContent = displayName;
         // 3. 同步聊天列表中的显示名
         renderChatList();
-        // 4. 同步角色主页名称
+        // 4. 同步角色主页名称（除联系人页面外，其余所有地方都覆盖角色名）
         var rpNameEl = document.getElementById('role-profile-name-text');
         if (rpNameEl) rpNameEl.textContent = displayName;
+        // 5. 同步信息(SMS)应用列表中的显示名（如果当前SMS聊天窗口打开也同步顶部标题）
+        var smsChatName = document.getElementById('sms-chat-name');
+        if (smsChatName && activeChatContact) {
+            // 仅当SMS聊天窗口当前显示的就是这个联系人时才同步
+            var smsWin = document.getElementById('sms-chat-window');
+            if (smsWin && smsWin.style.display === 'flex') {
+                smsChatName.textContent = displayName;
+            }
+        }
     };
 
     // 更换聊天壁纸 - 点击触发文件选择
